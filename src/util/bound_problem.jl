@@ -76,7 +76,7 @@ function _get_bound_problems_pipe(wm::AbstractNCDModel, i::Int, nw::Int; limit::
         flow_min = _get_lower_bound_from_index(wm, q_vid)
         bp_q_min = BoundProblem(JuMP.MIN_SENSE, q_vid, [],
             [], "flow_min", flow_min, 1.0e-3, true)
-        
+
         flow_min_forward = get(ref(wm, q_vid.network_index,
             :pipe)[i], "flow_min_forward", 0.0)
         bp_q_min_forward = BoundProblem(JuMP.MIN_SENSE, q_vid, [y_vid],
@@ -217,7 +217,7 @@ function _get_bound_problems_short_pipe(wm::AbstractNCDModel, i::Int, nw::Int; l
         flow_min = _get_lower_bound_from_index(wm, q_vid)
         bp_q_min = BoundProblem(JuMP.MIN_SENSE, q_vid, [],
             [], "flow_min", flow_min, 1.0e-3, true)
-        
+
         flow_min_forward = get(ref(wm, q_vid.network_index,
             :short_pipe)[i], "flow_min_forward", 0.0)
         bp_q_min_forward = BoundProblem(JuMP.MIN_SENSE, q_vid, [y_vid],
@@ -293,7 +293,7 @@ function _get_bound_problems_valve(wm::AbstractNCDModel, i::Int, nw::Int; limit:
         flow_min = _get_lower_bound_from_index(wm, q_vid)
         bp_q_min = BoundProblem(JuMP.MIN_SENSE, q_vid, [],
             [], "flow_min", flow_min, 1.0e-3, true)
-        
+
         flow_min_forward = get(ref(wm, q_vid.network_index,
             :valve)[i], "flow_min_forward", 0.0)
         bp_q_min_forward = BoundProblem(JuMP.MIN_SENSE, q_vid, [y_vid, z_vid],
