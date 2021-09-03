@@ -40,7 +40,7 @@ for formulation in [NCWaterModel, NCDWaterModel, CRDWaterModel, LAWaterModel, LR
     @testset "Optimal Water Flow Problems (Single Network, EPANET Pump Formulation): $(formulation)" begin
         network = WaterModels.parse_file("../test/data/epanet/snapshot/pump-hw-lps.inp")
 
-        map(x -> x["head_curve_form"] = PUMP_EPANET, values(network["pump"]))
+        map(x -> x["pump_type"] = PUMP_EPANET, values(network["pump"]))
         WaterModels.recompute_bounds!(network) # Recompute component bounds after the above changes.
         set_flow_partitions_si!(network, 10.0, 1.0e-4)
 
