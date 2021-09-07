@@ -3,6 +3,7 @@ mutable struct _PairwiseProblem
     variable_index_1::_VariableIndex
     variable_index_2::_VariableIndex
     variable_2_fixing_value::Float64
+    precision::Float64
 end
 
 
@@ -105,8 +106,8 @@ function _get_pairwise_problem_sets(wm::AbstractWaterModel; nw::Int = nw_id_defa
 
     for variable_index_1 in vcat(binary_variable_indices, continuous_variable_indices)
         for variable_index_2 in setdiff(binary_variable_indices, [variable_index_1])
-            problem_set_0 = _get_pairwise_problem_set(variable_index_1, variable_index_2, 0.0)
-            problem_set_1 = _get_pairwise_problem_set(variable_index_1, variable_index_2, 1.0)
+            problem_set_0 = _get_pairwise_problem_set(variable_index_1, variable_index_2, 0.0, 1.0e-4)
+            problem_set_1 = _get_pairwise_problem_set(variable_index_1, variable_index_2, 1.0, 1.0e-4)
             append!(problem_sets, [problem_set_0, problem_set_1])
         end
     end
