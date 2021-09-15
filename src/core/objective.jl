@@ -32,7 +32,7 @@ indicating whether (1) or not (0) the design pipe is selected for construction.
 function objective_des(wm::AbstractWaterModel)
     objective = JuMP.AffExpr(0.0)
 
-    for (n, nw_ref) in nws(wm)
+    for n in nw_ids(wm)
         for (a, des_pipe) in ref(wm, n, :des_pipe)
             z_des_pipe_term = des_pipe["cost"] * var(wm, n, :z_des_pipe, a)
             JuMP.add_to_expression!(objective, z_des_pipe_term)
@@ -40,6 +40,38 @@ function objective_des(wm::AbstractWaterModel)
     end
 
     return JuMP.@objective(wm.model, JuMP.MIN_SENSE, objective)
+end
+
+
+"""
+    objective_max_demand(wm::AbstractWaterModel)
+
+Sets the objective function for [Maximal Demand Delivery (MDD)](@ref) problem specifications.
+"""
+function objective_max_demand(wm::AbstractWaterModel)
+    # Get all network IDs in the multinetwork.
+    network_ids = sort(collect(nw_ids(wm)))
+
+    # Find the network IDs over which the objective will be defined.
+    if length(network_ids) > 1
+        network_ids_flow = network_ids[1:end-1]
+    else
+        network_ids_flow = network_ids
+    end
+
+    # Initialize the objective expression to zero.
+    objective = JuMP.AffExpr(0.0)
+
+    for n in network_ids_flow
+        for (i, demand) in ref(wm, n, :dispatchable_demand)
+            # Add the volume delivered at demand `i` and time period `n`.
+            coeff = get(demand, "priority", 1.0) * ref(wm, n, :time_step)
+            JuMP.add_to_expression!(objective, coeff * var(wm, n, :q_demand, i))
+        end
+    end
+
+    # Maximize the total amount of water volume delivered.
+    return JuMP.@objective(wm.model, _MOI.MIN_SENSE, objective)
 end
 
 
@@ -71,20 +103,27 @@ function objective_owf(wm::AbstractWaterModel)
     # Get all network IDs in the multinetwork.
     network_ids = sort(collect(nw_ids(wm)))
 
+    # Find the network IDs to define the objective over.
+    if length(network_ids) > 1
+        network_ids_flow = network_ids[1:end-1]
+    else
+        network_ids_flow = network_ids
+    end
+
     # Initialize the objective expression to zero.
     objective = JuMP.AffExpr(0.0)
 
-    for n in network_ids[1:end-1]
+    for n in network_ids_flow
         for (i, reservoir) in ref(wm, n, :reservoir)
-            # Add reservoir flow extraction and treatment costs to the objective.
+            # Add reservoir extraction and treatment costs to the objective.
             @assert haskey(reservoir, "flow_cost") # Ensure a flow cost exists.
             coeff = reservoir["flow_cost"] * ref(wm, n, :time_step)
             JuMP.add_to_expression!(objective, coeff * var(wm, n, :q_reservoir, i))
         end
     end
 
-    for n in network_ids[1:end-1]
-        for (a, pump) in ref(wm, n, :pump)
+    for n in network_ids_flow
+        for a in ids(wm, n, :pump)
             # Add pump energy costs to the objective.
             JuMP.add_to_expression!(objective, var(wm, n, :c_pump, a))
         end
