@@ -2,8 +2,9 @@
 # This file defines commonly-used objectives for water systems models.
 ######################################################################
 
+
 """
-    objective_wf(wm::AbstractWaterModel)
+    objective_wf(wm::AbstractWaterModel)::Nothing
 
 Sets the objective for [Water Flow (WF)](@ref) problem specifications. By
 default, only feasibility must be satisfied, i.e., there is no objective.
@@ -14,7 +15,7 @@ end
 
 
 """
-    objective_des(wm::AbstractWaterModel)
+    objective_des(wm::AbstractWaterModel)::JuMP.AffExpr
 
 Sets and returns the objective function for network design (des) problem
 specifications. By default, the cost of selecting the discrete pipe resistances
@@ -29,7 +30,7 @@ available at time index ``t``, ``c_{ijt}`` is the cost of installing design
 pipe ``(i, j)`` at time index ``t``, and ``z_{ijt}`` is a binary variable
 indicating whether (1) or not (0) the design pipe is selected for construction.
 """
-function objective_des(wm::AbstractWaterModel)
+function objective_des(wm::AbstractWaterModel)::JuMP.AffExpr
     objective = JuMP.AffExpr(0.0)
 
     for n in nw_ids(wm)
@@ -44,11 +45,11 @@ end
 
 
 """
-    objective_max_demand(wm::AbstractWaterModel)
+    objective_max_demand(wm::AbstractWaterModel)::JuMP.AffExpr
 
 Sets the objective function for [Maximal Demand Delivery (MDD)](@ref) problem specifications.
 """
-function objective_max_demand(wm::AbstractWaterModel)
+function objective_max_demand(wm::AbstractWaterModel)::JuMP.AffExpr
     # Get all network IDs in the multinetwork.
     network_ids = sort(collect(nw_ids(wm)))
 
@@ -76,7 +77,7 @@ end
 
 
 """
-    objective_owf(wm::AbstractWaterModel)
+    objective_owf(wm::AbstractWaterModel)::JuMP.AffExpr
 
 Sets the objective for optimal water flow (owf) problem specifications. By
 default, minimizes the costs associated with (1) extracting water from each
@@ -99,7 +100,7 @@ electricity (cost per unit energy) used for pumping at pump ``(i, j)`` and time
 water from reservoir ``i`` at time ``t``; and ``q_{it}`` is the volumetric flow
 rate of water extracted from reservoir ``i`` at time ``t``.
 """
-function objective_owf(wm::AbstractWaterModel)
+function objective_owf(wm::AbstractWaterModel)::JuMP.AffExpr
     # Get all network IDs in the multinetwork.
     network_ids = sort(collect(nw_ids(wm)))
 
