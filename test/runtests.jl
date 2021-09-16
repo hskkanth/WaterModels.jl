@@ -59,6 +59,8 @@ include("common.jl")
 
     include("des.jl")
 
+    include("mdd.jl")
+
     include("relax.jl")
 
     include("variable_index.jl")
