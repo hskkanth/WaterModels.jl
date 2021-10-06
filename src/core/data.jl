@@ -6,85 +6,6 @@ function apply_wm!(func!::Function, data::Dict{String, <:Any}; apply_to_subnetwo
 end
 
 
-"Check that all nodes are unique and other components link to valid nodes."
-function check_connectivity(data::Dict{String,<:Any})
-    apply_wm!(_check_connectivity, data)
-end
-
-
-"Check that all nodes are unique and other components link to valid nodes for a
-single-network data set that does not contain other multi-infrastructure data."
-function _check_connectivity(data::Dict{String,<:Any})
-    node_ids = Set(node["index"] for (i, node) in data["node"])
-    @assert(length(node_ids) == length(data["node"]))
-
-    for comp_type in _NODE_CONNECTED_COMPONENTS
-        for (i, comp) in data[comp_type]
-            if !(comp["node"] in node_ids)
-                error_message = "Node $(comp["node"]) in $(comp_type) $(i) is not defined."
-                Memento.error(_LOGGER, error_message)
-            end
-        end
-    end
-
-    for comp_type in _NODE_CONNECTING_COMPONENTS
-        for (i, comp) in data[comp_type]
-            if !(comp["node_fr"] in node_ids)
-                error_message = "From node $(comp["node_fr"]) in "
-                error_message *= "$(replace(comp_type, "_" => " ")) $(i) is not defined."
-                Memento.error(_LOGGER, error_message)
-            end
-
-            if !(comp["node_to"] in node_ids)
-                error_message = "To node $(comp["node_to"]) in "
-                error_message *= "$(replace(comp_type, "_" => " ")) $(i) is not defined."
-                Memento.error(_LOGGER, error_message)
-            end
-        end
-    end
-end
-
-
-"Check that active components are not connected to inactive nodes."
-function check_status(data::Dict{String,<:Any})
-    apply_wm!(_check_status, data)
-end
-
-
-"Check that active components are not connected to inactive nodes for a
-single-network data set that does not contain other multi-infrastructure data."
-function _check_status(data::Dict{String,<:Any})
-    active_nodes = filter(x -> x.second["status"] != STATUS_INACTIVE, data["node"])
-    active_node_ids = Set(node["index"] for (i, node) in active_nodes)
-
-    for comp_type in _NODE_CONNECTED_COMPONENTS
-        for (i, comp) in data[comp_type]
-            if comp["status"] != STATUS_INACTIVE && !(comp["node"] in active_node_ids)
-                warning_message = "Active $(comp_type) $(i) is connected to inactive "
-                warning_message *= "node $(comp["node"])."
-                Memento.warn(_LOGGER, warning_message)
-            end
-        end
-    end
-
-    for comp_type in _NODE_CONNECTING_COMPONENTS
-        for (i, comp) in data[comp_type]
-            if comp["status"] != STATUS_INACTIVE && !(comp["node_fr"] in active_node_ids)
-                warning_message = "Active $(comp_type) $(i) is connected to inactive "
-                warning_message *= "from node $(comp["node_fr"])."
-                Memento.warn(_LOGGER, warning_message)
-            end
-
-            if comp["status"] != STATUS_INACTIVE && !(comp["node_to"] in active_node_ids)
-                warning_message = "Active $(comp_type) $(i) is connected to inactive "
-                warning_message *= "to node $(comp["node_to"])."
-                Memento.warn(_LOGGER, warning_message)
-            end
-        end
-    end
-end
-
-
 function correct_enums!(data::Dict{String,<:Any})
     correct_statuses!(data)
     correct_flow_directions!(data)
@@ -98,7 +19,7 @@ end
 
 
 function _correct_flow_directions!(data::Dict{String,<:Any})
-    for component_type in _NODE_CONNECTING_COMPONENTS
+    for component_type in ["pipe", "des_pipe", "short_pipe", "pump", "regulator", "valve"]
         components = values(get(data, component_type, Dict{String,Any}()))
         _correct_flow_direction!.(components)
     end
@@ -111,7 +32,10 @@ end
 
 
 function _correct_statuses!(data::Dict{String,<:Any})
-    for component_type in vcat(_NODE_CONNECTING_COMPONENTS, _NODE_CONNECTED_COMPONENTS)
+    edge_types = ["pipe", "des_pipe", "short_pipe", "pump", "regulator", "valve"]
+    node_types = ["node", "demand", "reservoir", "tank", "reservoir"]
+
+    for component_type in vcat(edge_types, node_types)
         components = values(get(data, component_type, Dict{String,Any}()))
         _correct_status!.(components)
     end
@@ -480,7 +404,7 @@ function make_ts_metadata!(data::Dict{String, <:Any})
     if !haskey(data, "time_series")
         data["time_series"] = Dict{String, Any}()
     end
-    
+
     data["time_series"]["duration"] = data["duration"]
     data["time_series"]["num_steps"] = length(data["nw"])
     data["time_series"]["time_step"] = data["time_step"]
@@ -490,7 +414,7 @@ end
 function make_component_ts!(data::Dict{String, <:Any}, comp_type::String, key::String)
     @assert ismultinetwork(data) # Ensure data is multinetwork.
     nws = sort([parse(Int, x) for x in keys(data["nw"])])
-    
+
     if !haskey(data, "time_series")
         data["time_series"] = Dict{String, Any}()
     end
@@ -533,7 +457,7 @@ function make_single_network(data::Dict{String, <:Any})
         if !haskey(data_s["nw"][nw_1_str], comp_type)
             continue
         end
-        
+
         comp_keys = keys(data_s["nw"][nw_1_str][comp_type])
         make_component_ts!.(Ref(data_s), comp_type, comp_keys)
 
@@ -755,10 +679,6 @@ function _relax_network!(data::Dict{String,<:Any})
     _relax_tanks!(data)
     _relax_reservoirs!(data)
     _relax_demands!(data)
-
-    _relax_pipes!(data)
-    _relax_pumps!(data)
-    _relax_valves!(data)
 end
 
 
@@ -770,7 +690,7 @@ end
 
 function _recompute_bounds!(data::Dict{String, <:Any})
     # Clear the existing flow bounds for node-connecting components.
-    for comp_type in _NODE_CONNECTING_COMPONENTS
+    for comp_type in ["pipe", "des_pipe", "pump", "regulator", "short_pipe", "valve"]
         map(x -> x["flow_min"] = -Inf, values(data[comp_type]))
         map(x -> x["flow_max"] = Inf, values(data[comp_type]))
     end
@@ -993,7 +913,7 @@ end
 
 function _apply_pipe_unit_transform!(data::Dict{String,<:Any}, transform_length::Function, head_loss::String)
     wm_data = get_wm_data(data)
-    
+
     if !haskey(wm_data, "pipe")
         return
     end
@@ -1081,11 +1001,11 @@ function _apply_pump_unit_transform!(
 
         if haskey(pump, "min_inactive_time")
             pump["min_inactive_time"] = transform_time(pump["min_inactive_time"])
-        end 
+        end
 
         if haskey(pump, "min_active_time")
             pump["min_active_time"] = transform_time(pump["min_active_time"])
-        end 
+        end
 
         if haskey(pump, "power_per_unit_flow")
             pump["power_per_unit_flow"] *= power_scalar / transform_flow(1.0)
@@ -1139,7 +1059,7 @@ function _calc_scaled_gravity(data::Dict{String, <:Any})
 
     if wm_data["per_unit"]
         base_time = 1.0 / _calc_time_per_unit_transform(wm_data)(1.0)
-        base_length = 1.0 / _calc_length_per_unit_transform(wm_data)(1.0) 
+        base_length = 1.0 / _calc_length_per_unit_transform(wm_data)(1.0)
         return _calc_scaled_gravity(base_length, base_time)
     else
         return _GRAVITY
@@ -1363,189 +1283,4 @@ function _set_warm_start!(data::Dict{String, <:Any})
     _set_pump_warm_start!(data)
     _set_short_pipe_warm_start!(data)
     _set_valve_warm_start!(data)
-end
-
-
-"""
-Deactivates components that are not needed in the network by repeated calls to
-`propagate_topology_status!`. This implementation has quadratic complexity.
-"""
-function simplify_network!(data::Dict{String,<:Any})::Bool
-    revised, num_iterations = true, 0
-
-    while revised
-        revised = false
-        revised |= propagate_topology_status!(data)
-        # revised |= deactivate_isolated_components!(data)
-        num_iterations += 1
-    end
-
-    Memento.info(_LOGGER, "Network simplification reached in $(num_iterations) rounds.")
-
-    # Returns whether or not the data has been modified.
-    return revised
-end
-
-
-"""
-Propagates inactive network node statuses to attached components (e.g., pipes) so that
-system status values are consistent. Returns true if any component was modified.
-"""
-function propagate_topology_status!(data::Dict{String, <:Any})::Bool
-    revised = false
-    wm_data = get_wm_data(data)
-
-    if _IM.ismultinetwork(wm_data)
-        for wm_nw_data in values(wm_data["nw"])
-            revised |= _propagate_topology_status!(wm_nw_data)
-        end
-    else
-        revised = _propagate_topology_status!(wm_data)
-    end
-
-    return revised
-end
-
-
-""
-function _propagate_topology_status!(data::Dict{String,<:Any})
-    nodes = Dict{Int, Any}(node["index"] => node for (i, node) in data["node"])
-
-    # Compute what active demands are incident to each node.
-    incident_demand = node_comp_lookup(data["demand"], data["node"])
-    incident_active_demand = Dict()
-
-    for (i, demand_list) in incident_demand
-        incident_active_demand[i] = [demand for demand in demand_list if demand["status"] != STATUS_INACTIVE]
-    end
-
-    # Compute what active reservoirs are incident to each node.
-    incident_reservoir = node_comp_lookup(data["reservoir"], data["node"])
-    incident_active_reservoir = Dict()
-
-    for (i, reservoir_list) in incident_reservoir
-        incident_active_reservoir[i] = [reservoir for reservoir in reservoir_list if reservoir["status"] != STATUS_INACTIVE]
-    end
-
-    # Compute what active tanks are incident to each node.
-    incident_tank = node_comp_lookup(data["tank"], data["node"])
-    incident_active_tank = Dict()
-
-    for (i, tank_list) in incident_tank
-        incident_active_tank[i] = [tank for tank in tank_list if tank["status"] != STATUS_INACTIVE]
-    end
-
-    # Compute what active pipes are incident to each node.
-    incident_pipe = Dict{Int, Any}(node["index"] => [] for (i, node) in data["node"])
-
-    for pipe in values(data["pipe"])
-        push!(incident_pipe[pipe["node_fr"]], pipe)
-        push!(incident_pipe[pipe["node_to"]], pipe)
-    end
-
-    # Compute what active design pipes are incident to each node.
-    incident_des_pipe = Dict{Int, Any}(node["index"] => [] for (i, node) in data["node"])
-
-    for des_pipe in values(data["des_pipe"])
-        push!(incident_des_pipe[des_pipe["node_fr"]], des_pipe)
-        push!(incident_des_pipe[des_pipe["node_to"]], des_pipe)
-    end
-
-    # Compute what active pumps are incident to each node.
-    incident_pump = Dict{Int, Any}(node["index"] => [] for (i, node) in data["node"])
-
-    for pump in values(data["pump"])
-        push!(incident_pump[pump["node_fr"]], pump)
-        push!(incident_pump[pump["node_to"]], pump)
-    end
-
-    # Compute what active regulators are incident to each node.
-    incident_regulator = Dict{Int, Any}(node["index"] => [] for (i, node) in data["node"])
-
-    for regulator in values(data["regulator"])
-        push!(incident_regulator[regulator["node_fr"]], regulator)
-        push!(incident_regulator[regulator["node_to"]], regulator)
-    end
-
-    # Compute what active short pipes are incident to each node.
-    incident_short_pipe = Dict{Int, Any}(node["index"] => [] for (i, node) in data["node"])
-
-    for short_pipe in values(data["short_pipe"])
-        push!(incident_short_pipe[short_pipe["node_fr"]], short_pipe)
-        push!(incident_short_pipe[short_pipe["node_to"]], short_pipe)
-    end
-
-    # Compute what active valves are incident to each node.
-    incident_valve = Dict{Int, Any}(node["index"] => [] for (i, node) in data["node"])
-
-    for valve in values(data["valve"])
-        push!(incident_valve[valve["node_fr"]], valve)
-        push!(incident_valve[valve["node_to"]], valve)
-    end
-
-    revised = false
-
-    for comp_type in ["pipe", "des_pipe", "pump", "regulator", "short_pipe", "valve"]
-        for (i, comp) in data[comp_type]
-            if comp["status"] != STATUS_INACTIVE
-                node_fr = nodes[comp["node_fr"]]
-                node_to = nodes[comp["node_to"]]
-
-                if any(x["status"] == STATUS_INACTIVE for x in [node_fr, node_to])
-                    message = "Deactivating $(replace(comp_type, "_" => " ")) $(i): "
-                    message *= "($(comp["node_fr"]), $(comp["node_to"])) "
-                    message *= "because of a connecting node's status."
-                    Memento.info(_LOGGER, message)
-
-                    comp["status"] = STATUS_INACTIVE
-                    revised = true
-                end
-            end
-        end
-    end
-
-    for (i, node) in nodes
-        if node["status"] == STATUS_INACTIVE
-            for demand in incident_active_demand[i]
-                if demand["status"] != STATUS_INACTIVE
-                    message = "Deactivating demand $(demand["index"]) due to inactive node $(i)."
-                    Memento.info(_LOGGER, message)
-                    demand["status"] = STATUS_INACTIVE
-                    revised = true
-                end
-            end
-
-            for reservoir in incident_active_reservoir[i]
-                if reservoir["status"] != STATUS_INACTIVE
-                    message = "Deactivating reservoir $(reservoir["index"]) due to inactive node $(i)."
-                    Memento.info(_LOGGER, message)
-                    reservoir["status"] = STATUS_INACTIVE
-                    revised = true
-                end
-            end
-
-            for tank in incident_active_tank[i]
-                if tank["status"] != STATUS_INACTIVE
-                    message = "Deactivating tank $(tank["index"]) due to inactive node $(i)."
-                    Memento.info(_LOGGER, message)
-                    tank["status"] = STATUS_INACTIVE
-                    revised = true
-                end
-            end
-        end
-    end
-
-    return revised
-end
-
-
-"Builds a lookup list of what components are connected to a given node."
-function node_comp_lookup(comp_data::Dict{String,<:Any}, node_data::Dict{String,<:Any})
-    node_comp = Dict{Int, Any}(node["index"] => [] for (i, node) in node_data)
-
-    for comp in values(comp_data)
-        push!(node_comp[comp["node"]], comp)
-    end
-    
-    return node_comp
 end
