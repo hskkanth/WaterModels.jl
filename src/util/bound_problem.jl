@@ -57,13 +57,17 @@ function _get_bound_problems_tank(wm::AbstractWaterModel, i::Int, nw::Int; limit
     if haskey(var(wm, nw), :q_tank) && i in [x for x in var(wm, nw, :q_tank).axes[1]]
         q_tank_vid = _VariableIndex(nw, :tank, :q_tank, i)
 
+        wm_data = get_wm_data(wm.data)
+        flow_transform = _calc_flow_per_unit_transform(wm_data)
+        flow_precision = flow_transform(1.0e-4)
+
         q_tank_min = _get_lower_bound_from_index(wm, q_tank_vid)
         bp_min = BoundProblem(_MOI.MIN_SENSE, q_tank_vid, [],
-            [], "flow_min", q_tank_min, 1.0e-4, true)
+            [], "flow_min", q_tank_min, flow_precision, true)
 
         q_tank_max = _get_upper_bound_from_index(wm, q_tank_vid)
         bp_max = BoundProblem(_MOI.MAX_SENSE, q_tank_vid, [],
-            [], "flow_max", q_tank_max, 1.0e-4, true)
+            [], "flow_max", q_tank_max, flow_precision, true)
 
         return Vector{BoundProblem}([bp_min, bp_max])
     else
@@ -86,6 +90,10 @@ function _get_bound_problems_pipe(wm::AbstractNCModel, i::Int, nw::Int; limit::B
     if haskey(var(wm, nw), :q_pipe) && i in [x for x in var(wm, nw, :q_pipe).axes[1]]
         q_vid = _VariableIndex(nw, :pipe, :q_pipe, i)
 
+        wm_data = get_wm_data(wm.data)
+        flow_transform = _calc_flow_per_unit_transform(wm_data)
+        flow_precision = flow_transform(1.0e-4)
+
         flow_min = _get_lower_bound_from_index(wm, q_vid)
         bp_min = BoundProblem(JuMP.MIN_SENSE, q_vid, [],
             [], "flow_min", flow_min, 1.0e-3, true)
@@ -105,6 +113,10 @@ function _get_bound_problems_pipe(wm::AbstractNCDModel, i::Int, nw::Int; limit::
     if haskey(var(wm, nw), :q_pipe) && i in [x for x in var(wm, nw, :q_pipe).axes[1]]
         q_vid = _VariableIndex(nw, :pipe, :q_pipe, i)
         y_vid = _VariableIndex(nw, :pipe, :y_pipe, i)
+
+        wm_data = get_wm_data(wm.data)
+        flow_transform = _calc_flow_per_unit_transform(wm_data)
+        flow_precision = flow_transform(1.0e-4)
 
         flow_min = _get_lower_bound_from_index(wm, q_vid)
         bp_q_min = BoundProblem(JuMP.MIN_SENSE, q_vid, [],
@@ -157,6 +169,10 @@ function _get_bound_problems_des_pipe(wm::AbstractNCDModel, i::Int, nw::Int; lim
         y_vid = _VariableIndex(nw, :des_pipe, :y_des_pipe, i)
         z_vid = _VariableIndex(nw, :des_pipe, :z_des_pipe, i)
 
+        wm_data = get_wm_data(wm.data)
+        flow_transform = _calc_flow_per_unit_transform(wm_data)
+        flow_precision = flow_transform(1.0e-4)
+
         flow_min = _get_lower_bound_from_index(wm, q_vid)
         bp_q_min = BoundProblem(_MOI.MIN_SENSE, q_vid, [],
             [], "flow_min", flow_min, 1.0e-4, true)
@@ -164,16 +180,16 @@ function _get_bound_problems_des_pipe(wm::AbstractNCDModel, i::Int, nw::Int; lim
         flow_min_forward = get(ref(wm, q_vid.network_index,
             :des_pipe)[i], "flow_min_forward", 0.0)
         bp_q_min_forward = BoundProblem(_MOI.MIN_SENSE, q_vid, [y_vid, z_vid],
-            [], "flow_min_forward", flow_min_forward, 1.0e-4, true)
+            [], "flow_min_forward", flow_min_forward, flow_precision, true)
 
         flow_max = _get_upper_bound_from_index(wm, q_vid)
         bp_q_max = BoundProblem(_MOI.MAX_SENSE, q_vid, [],
-            [], "flow_max", flow_max, 1.0e-4, true)
+            [], "flow_max", flow_max, flow_precision, true)
 
         flow_max_reverse = get(ref(wm, q_vid.network_index,
             :des_pipe)[i], "flow_max_reverse", 0.0)
         bp_q_max_reverse = BoundProblem(_MOI.MAX_SENSE, q_vid, [z_vid],
-            [y_vid], "flow_max_reverse", flow_max_reverse, 1.0e-4, true)
+            [y_vid], "flow_max_reverse", flow_max_reverse, flow_precision, true)
 
         bp_y_min = BoundProblem(_MOI.MIN_SENSE, y_vid, [],
             [], "y_min", 0.0, 1.0e-2, true)
@@ -212,6 +228,10 @@ function _get_bound_problems_pump(wm::AbstractWaterModel, i::Int, nw::Int; limit
         q_vid = _VariableIndex(nw, :pump, :q_pump, i)
         z_vid = _VariableIndex(nw, :pump, :z_pump, i)
 
+        wm_data = get_wm_data(wm.data)
+        flow_transform = _calc_flow_per_unit_transform(wm_data)
+        flow_precision = flow_transform(1.0e-4)
+
         flow_min_forward = get(ref(wm, q_vid.network_index,
             :pump)[i], "flow_min_forward", 0.0)
         bp_min = BoundProblem(JuMP.MIN_SENSE, q_vid, [z_vid],
@@ -248,6 +268,10 @@ function _get_bound_problems_regulator(wm::AbstractWaterModel, i::Int, nw::Int; 
         q_vid = _VariableIndex(nw, :regulator, :q_regulator, i)
         z_vid = _VariableIndex(nw, :regulator, :z_regulator, i)
 
+        wm_data = get_wm_data(wm.data)
+        flow_transform = _calc_flow_per_unit_transform(wm_data)
+        flow_precision = flow_transform(1.0e-4)
+
         flow_min_forward = get(ref(wm, q_vid.network_index,
             :regulator)[i], "flow_min_forward", 0.0)
         bp_min = BoundProblem(JuMP.MIN_SENSE, q_vid, [z_vid],
@@ -283,6 +307,10 @@ function _get_bound_problems_short_pipe(wm::AbstractNCModel, i::Int, nw::Int; li
     if haskey(var(wm, nw), :q_short_pipe) && i in [x for x in var(wm, nw, :q_short_pipe).axes[1]]
         q_vid = _VariableIndex(nw, :short_pipe, :q_short_pipe, i)
 
+        wm_data = get_wm_data(wm.data)
+        flow_transform = _calc_flow_per_unit_transform(wm_data)
+        flow_precision = flow_transform(1.0e-4)
+
         flow_min = _get_lower_bound_from_index(wm, q_vid)
         bp_min = BoundProblem(JuMP.MIN_SENSE, q_vid, [],
             [], "flow_min", flow_min, 1.0e-3, true)
@@ -302,6 +330,10 @@ function _get_bound_problems_short_pipe(wm::AbstractNCDModel, i::Int, nw::Int; l
     if haskey(var(wm, nw), :q_short_pipe) && i in [x for x in var(wm, nw, :q_short_pipe).axes[1]]
         q_vid = _VariableIndex(nw, :short_pipe, :q_short_pipe, i)
         y_vid = _VariableIndex(nw, :short_pipe, :y_short_pipe, i)
+
+        wm_data = get_wm_data(wm.data)
+        flow_transform = _calc_flow_per_unit_transform(wm_data)
+        flow_precision = flow_transform(1.0e-4)
 
         flow_min = _get_lower_bound_from_index(wm, q_vid)
         bp_q_min = BoundProblem(JuMP.MIN_SENSE, q_vid, [],
@@ -353,6 +385,10 @@ function _get_bound_problems_valve(wm::AbstractNCModel, i::Int, nw::Int; limit::
         q_vid = _VariableIndex(nw, :valve, :q_valve, i)
         z_vid = _VariableIndex(nw, :valve, :z_valve, i)
 
+        wm_data = get_wm_data(wm.data)
+        flow_transform = _calc_flow_per_unit_transform(wm_data)
+        flow_precision = flow_transform(1.0e-4)
+
         flow_min = _get_lower_bound_from_index(wm, q_vid)
         bp_min = BoundProblem(JuMP.MIN_SENSE, q_vid, [],
             [], "flow_min", flow_min, 1.0e-3, true)
@@ -378,6 +414,10 @@ function _get_bound_problems_valve(wm::AbstractNCDModel, i::Int, nw::Int; limit:
         q_vid = _VariableIndex(nw, :valve, :q_valve, i)
         y_vid = _VariableIndex(nw, :valve, :y_valve, i)
         z_vid = _VariableIndex(nw, :valve, :z_valve, i)
+
+        wm_data = get_wm_data(wm.data)
+        flow_transform = _calc_flow_per_unit_transform(wm_data)
+        flow_precision = flow_transform(1.0e-4)
 
         flow_min = _get_lower_bound_from_index(wm, q_vid)
         bp_q_min = BoundProblem(JuMP.MIN_SENSE, q_vid, [],
