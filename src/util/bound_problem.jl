@@ -7,6 +7,7 @@ mutable struct BoundProblem
     bound::Float64 # The current bound of the variable.
     precision::Float64 # The precision of the variable bound.
     changed::Bool # Indicator specifying if the bound has changed.
+    infeasible::Bool # Indicator specifying if the problem is infeasible.
 end
 
 
@@ -63,11 +64,11 @@ function _get_bound_problems_tank(wm::AbstractWaterModel, i::Int, nw::Int; limit
 
         q_tank_min = _get_lower_bound_from_index(wm, q_tank_vid)
         bp_min = BoundProblem(_MOI.MIN_SENSE, q_tank_vid, [],
-            [], "flow_min", q_tank_min, flow_precision, true)
+            [], "flow_min", q_tank_min, flow_precision, true, false)
 
         q_tank_max = _get_upper_bound_from_index(wm, q_tank_vid)
         bp_max = BoundProblem(_MOI.MAX_SENSE, q_tank_vid, [],
-            [], "flow_max", q_tank_max, flow_precision, true)
+            [], "flow_max", q_tank_max, flow_precision, true, false)
 
         return Vector{BoundProblem}([bp_min, bp_max])
     else
@@ -180,26 +181,26 @@ function _get_bound_problems_des_pipe(wm::AbstractNCDModel, i::Int, nw::Int; lim
         flow_min_forward = get(ref(wm, q_vid.network_index,
             :des_pipe)[i], "flow_min_forward", 0.0)
         bp_q_min_forward = BoundProblem(_MOI.MIN_SENSE, q_vid, [y_vid, z_vid],
-            [], "flow_min_forward", flow_min_forward, flow_precision, true)
+            [], "flow_min_forward", flow_min_forward, flow_precision, true, false)
 
         flow_max = _get_upper_bound_from_index(wm, q_vid)
         bp_q_max = BoundProblem(_MOI.MAX_SENSE, q_vid, [],
-            [], "flow_max", flow_max, flow_precision, true)
+            [], "flow_max", flow_max, flow_precision, true, false)
 
         flow_max_reverse = get(ref(wm, q_vid.network_index,
             :des_pipe)[i], "flow_max_reverse", 0.0)
         bp_q_max_reverse = BoundProblem(_MOI.MAX_SENSE, q_vid, [z_vid],
-            [y_vid], "flow_max_reverse", flow_max_reverse, flow_precision, true)
+            [y_vid], "flow_max_reverse", flow_max_reverse, flow_precision, true, false)
 
         bp_y_min = BoundProblem(_MOI.MIN_SENSE, y_vid, [],
-            [], "y_min", 0.0, 1.0e-2, true)
+            [], "y_min", 0.0, 1.0e-2, true, false)
         bp_y_max = BoundProblem(_MOI.MAX_SENSE, y_vid, [],
-            [], "y_max", 1.0, 1.0e-2, true)
+            [], "y_max", 1.0, 1.0e-2, true, false)
 
         bp_z_min = BoundProblem(_MOI.MIN_SENSE, z_vid, [],
-            [], "z_min", 0.0, 1.0e-2, true)
+            [], "z_min", 0.0, 1.0e-2, true, false)
         bp_z_max = BoundProblem(_MOI.MAX_SENSE, z_vid, [],
-            [], "z_max", 1.0, 1.0e-2, true)
+            [], "z_max", 1.0, 1.0e-2, true, false)
 
         if limit
             return Vector{BoundProblem}([bp_q_min_forward, bp_q_max_reverse])
