@@ -351,3 +351,10 @@ pump is indeed switched from on to off between time indices `n_1` and `n_2`.
         append!(con(wm, n_2, :pump_switch_off)[a], [c_2])
     end
  end
+
+
+ "Try to determine a scaling factor that centers values around one."
+ function _get_scaling_factor(values::Vector{Float64})::Float64
+    mean_log10_value = Statistics.mean(log10.(abs.(values)))
+    return 10^(-mean_log10_value)
+ end
