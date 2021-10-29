@@ -295,7 +295,7 @@ function _clean_bound_problems(problems::Vector{BoundProblem}, vals::Vector{Floa
 
     # Initialize the new vector of problems, which may be reduced.
     problems_new = Vector{BoundProblem}([])
-    
+
     for problem in problems
         # Check if the problem fixes one of the variables that has now been fixed.
         contains_fixed_one = any([x in problem.variables_fix_one for x in fixed_zero_vars])
@@ -465,13 +465,4 @@ function solve_obbt!(
     parallel_time_elapsed_rounded = round(parallel_time_elapsed; digits = 2)
     Memento.info(_LOGGER, "[OBBT] Completed in $(time_elapsed_rounded) " *
         "seconds (ideal parallel time: $(parallel_time_elapsed_rounded) seconds).")
-end
-
-
-function _check_obbt_options(ub::Float64, ub_constraint::Bool)
-    if ub_constraint && isinf(ub)
-        message = "[OBBT] The option \"upper_bound_constraint\" cannot " *
-            "be set to true without specifying an upper bound."
-        Memento.error(_LOGGER, message)
-    end
 end
