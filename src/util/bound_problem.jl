@@ -23,6 +23,7 @@ end
 
 function _get_bound_problems_node(wm::AbstractWaterModel, i::Int, nw::Int; limit::Bool = false)
     if haskey(var(wm, nw), :h) && i in [x for x in var(wm, nw, :h).axes[1]]
+        node = ref(wm, nw, :node, i)
         h_vid = _VariableIndex(nw, :node, :h, i)
 
         wm_data = get_wm_data(wm.data)
@@ -56,19 +57,18 @@ end
 
 function _get_bound_problems_tank(wm::AbstractWaterModel, i::Int, nw::Int; limit::Bool = false)
     if haskey(var(wm, nw), :q_tank) && i in [x for x in var(wm, nw, :q_tank).axes[1]]
+        tank = ref(wm, nw, :tank, i)
         q_tank_vid = _VariableIndex(nw, :tank, :q_tank, i)
 
         wm_data = get_wm_data(wm.data)
         flow_transform = _calc_flow_per_unit_transform(wm_data)
         flow_precision = flow_transform(1.0e-4)
 
-        q_tank_min = _get_lower_bound_from_index(wm, q_tank_vid)
-        bp_min = BoundProblem(_MOI.MIN_SENSE, q_tank_vid, [],
-            [], "flow_min", q_tank_min, flow_precision, true, false)
+        q_tank_min = max(get(tank, "flow_min", -Inf), _get_lower_bound_from_index(wm, q_tank_vid))
+        bp_min = BoundProblem(_MOI.MIN_SENSE, q_tank_vid, [], [], "flow_min", q_tank_min, flow_precision, true, false)
 
-        q_tank_max = _get_upper_bound_from_index(wm, q_tank_vid)
-        bp_max = BoundProblem(_MOI.MAX_SENSE, q_tank_vid, [],
-            [], "flow_max", q_tank_max, flow_precision, true, false)
+        q_tank_max = min(get(tank, "flow_max", Inf), _get_upper_bound_from_index(wm, q_tank_vid))
+        bp_max = BoundProblem(_MOI.MAX_SENSE, q_tank_vid, [], [], "flow_max", q_tank_max, flow_precision, true, false)
 
         return Vector{BoundProblem}([bp_min, bp_max])
     else
@@ -89,6 +89,7 @@ end
 
 function _get_bound_problems_pipe(wm::AbstractNCModel, i::Int, nw::Int; limit::Bool = false)
     if haskey(var(wm, nw), :q_pipe) && i in [x for x in var(wm, nw, :q_pipe).axes[1]]
+        pipe = ref(wm, nw, :pipe, i)
         q_vid = _VariableIndex(nw, :pipe, :q_pipe, i)
 
         wm_data = get_wm_data(wm.data)
@@ -112,6 +113,8 @@ end
 
 function _get_bound_problems_pipe(wm::AbstractNCDModel, i::Int, nw::Int; limit::Bool = false)
     if haskey(var(wm, nw), :q_pipe) && i in [x for x in var(wm, nw, :q_pipe).axes[1]]
+        pipe = ref(wm, nw, :pipe, i)
+
         q_vid = _VariableIndex(nw, :pipe, :q_pipe, i)
         y_vid = _VariableIndex(nw, :pipe, :y_pipe, i)
 
@@ -145,8 +148,7 @@ function _get_bound_problems_pipe(wm::AbstractNCDModel, i::Int, nw::Int; limit::
         if limit
             return Vector{BoundProblem}([bp_q_min, bp_q_max])
         else
-            return Vector{BoundProblem}([bp_q_min, bp_q_min_forward,
-                bp_q_max, bp_q_max_reverse, bp_y_min, bp_y_max])
+            return Vector{BoundProblem}([bp_q_min, bp_q_min_forward, bp_q_max, bp_q_max_reverse, bp_y_min, bp_y_max])
         end
     else
         return Vector{BoundProblem}([])
@@ -166,6 +168,8 @@ end
 
 function _get_bound_problems_des_pipe(wm::AbstractNCDModel, i::Int, nw::Int; limit::Bool = false)
     if haskey(var(wm, nw), :q_des_pipe) && i in [x for x in var(wm, nw, :q_des_pipe).axes[1]]
+        des_pipe = ref(wm, nw, :des_pipe, i)
+
         q_vid = _VariableIndex(nw, :des_pipe, :q_des_pipe, i)
         y_vid = _VariableIndex(nw, :des_pipe, :y_des_pipe, i)
         z_vid = _VariableIndex(nw, :des_pipe, :z_des_pipe, i)
@@ -183,30 +187,28 @@ function _get_bound_problems_des_pipe(wm::AbstractNCDModel, i::Int, nw::Int; lim
         bp_q_min_forward = BoundProblem(_MOI.MIN_SENSE, q_vid, [y_vid, z_vid],
             [], "flow_min_forward", flow_min_forward, flow_precision, true, false)
 
-        flow_max = _get_upper_bound_from_index(wm, q_vid)
-        bp_q_max = BoundProblem(_MOI.MAX_SENSE, q_vid, [],
-            [], "flow_max", flow_max, flow_precision, true, false)
+        flow_max = min(get(des_pipe, "flow_max", Inf), _get_upper_bound_from_index(wm, q_vid))
+        bp_q_max = BoundProblem(_MOI.MAX_SENSE, q_vid, [], [], "flow_max", flow_max, flow_precision, true, false)
 
-        flow_max_reverse = get(ref(wm, q_vid.network_index,
-            :des_pipe)[i], "flow_max_reverse", 0.0)
-        bp_q_max_reverse = BoundProblem(_MOI.MAX_SENSE, q_vid, [z_vid],
-            [y_vid], "flow_max_reverse", flow_max_reverse, flow_precision, true, false)
+        flow_max_reverse = get(des_pipe, "flow_max_reverse", 0.0)
+        bp_q_max_reverse = BoundProblem(_MOI.MAX_SENSE, q_vid, [z_vid], [y_vid], "flow_max_reverse", flow_max_reverse, flow_precision, true, false)
 
-        bp_y_min = BoundProblem(_MOI.MIN_SENSE, y_vid, [],
-            [], "y_min", 0.0, 1.0e-2, true, false)
-        bp_y_max = BoundProblem(_MOI.MAX_SENSE, y_vid, [],
-            [], "y_max", 1.0, 1.0e-2, true, false)
+        y_min = get(des_pipe, "y_min", 0.0)
+        bp_y_min = BoundProblem(_MOI.MIN_SENSE, y_vid, [], [], "y_min", y_min, 1.0e-2, true, false)
 
-        bp_z_min = BoundProblem(_MOI.MIN_SENSE, z_vid, [],
-            [], "z_min", 0.0, 1.0e-2, true, false)
-        bp_z_max = BoundProblem(_MOI.MAX_SENSE, z_vid, [],
-            [], "z_max", 1.0, 1.0e-2, true, false)
+        y_max = get(des_pipe, "y_max", 1.0)
+        bp_y_max = BoundProblem(_MOI.MAX_SENSE, y_vid, [], [], "y_max", y_max, 1.0e-2, true, false)
+
+        z_min = get(des_pipe, "z_min", 0.0)
+        bp_z_min = BoundProblem(_MOI.MIN_SENSE, z_vid, [], [], "z_min", z_min, 1.0e-2, true, false)
+
+        z_max = get(des_pipe, "z_max", 1.0)
+        bp_z_max = BoundProblem(_MOI.MAX_SENSE, z_vid, [], [], "z_max", z_max, 1.0e-2, true, false)
 
         if limit
             return Vector{BoundProblem}([bp_q_min_forward, bp_q_max_reverse])
         else
-            return Vector{BoundProblem}([bp_q_min, bp_q_min_forward, bp_q_max,
-                bp_q_max_reverse, bp_y_min, bp_y_max, bp_z_min, bp_z_max])
+            return Vector{BoundProblem}([bp_q_min, bp_q_min_forward, bp_q_max, bp_q_max_reverse, bp_y_min, bp_y_max, bp_z_min, bp_z_max])
         end
     else
         return Vector{BoundProblem}([])
@@ -226,6 +228,8 @@ end
 
 function _get_bound_problems_pump(wm::AbstractWaterModel, i::Int, nw::Int; limit::Bool = false)
     if haskey(var(wm, nw), :q_pump) && i in [x for x in var(wm, nw, :q_pump).axes[1]]
+        pump = ref(wm, nw, :pump, i)
+
         q_vid = _VariableIndex(nw, :pump, :q_pump, i)
         z_vid = _VariableIndex(nw, :pump, :z_pump, i)
 
@@ -266,6 +270,8 @@ end
 
 function _get_bound_problems_regulator(wm::AbstractWaterModel, i::Int, nw::Int; limit::Bool = false)
     if haskey(var(wm, nw), :q_regulator) && i in [x for x in var(wm, nw, :q_regulator).axes[1]]
+        regulator = ref(wm, nw, :regulator, i)
+
         q_vid = _VariableIndex(nw, :regulator, :q_regulator, i)
         z_vid = _VariableIndex(nw, :regulator, :z_regulator, i)
 
@@ -306,6 +312,7 @@ end
 
 function _get_bound_problems_short_pipe(wm::AbstractNCModel, i::Int, nw::Int; limit::Bool = false)
     if haskey(var(wm, nw), :q_short_pipe) && i in [x for x in var(wm, nw, :q_short_pipe).axes[1]]
+        short_pipe = ref(wm, nw, :short_pipe, i)
         q_vid = _VariableIndex(nw, :short_pipe, :q_short_pipe, i)
 
         wm_data = get_wm_data(wm.data)
@@ -329,6 +336,8 @@ end
 
 function _get_bound_problems_short_pipe(wm::AbstractNCDModel, i::Int, nw::Int; limit::Bool = false)
     if haskey(var(wm, nw), :q_short_pipe) && i in [x for x in var(wm, nw, :q_short_pipe).axes[1]]
+        short_pipe = ref(wm, nw, :short_pipe, i)
+
         q_vid = _VariableIndex(nw, :short_pipe, :q_short_pipe, i)
         y_vid = _VariableIndex(nw, :short_pipe, :y_short_pipe, i)
 
@@ -362,8 +371,7 @@ function _get_bound_problems_short_pipe(wm::AbstractNCDModel, i::Int, nw::Int; l
         if limit
             return Vector{BoundProblem}([bp_q_min, bp_q_max])
         else
-            return Vector{BoundProblem}([bp_q_min, bp_q_min_forward,
-                bp_q_max, bp_q_max_reverse, bp_y_min, bp_y_max])
+            return Vector{BoundProblem}([bp_q_min, bp_q_min_forward, bp_q_max, bp_q_max_reverse, bp_y_min, bp_y_max])
         end
     else
         return Vector{BoundProblem}([])
@@ -383,6 +391,8 @@ end
 
 function _get_bound_problems_valve(wm::AbstractNCModel, i::Int, nw::Int; limit::Bool = false)
     if haskey(var(wm, nw), :q_valve) && i in [x for x in var(wm, nw, :q_valve).axes[1]]
+        valve = ref(wm, nw, :valve, i)
+
         q_vid = _VariableIndex(nw, :valve, :q_valve, i)
         z_vid = _VariableIndex(nw, :valve, :z_valve, i)
 
@@ -412,6 +422,8 @@ end
 
 function _get_bound_problems_valve(wm::AbstractNCDModel, i::Int, nw::Int; limit::Bool = false)
     if haskey(var(wm, nw), :q_valve) && i in [x for x in var(wm, nw, :q_valve).axes[1]]
+        valve = ref(wm, nw, :valve, i)
+
         q_vid = _VariableIndex(nw, :valve, :q_valve, i)
         y_vid = _VariableIndex(nw, :valve, :y_valve, i)
         z_vid = _VariableIndex(nw, :valve, :z_valve, i)
@@ -450,8 +462,7 @@ function _get_bound_problems_valve(wm::AbstractNCDModel, i::Int, nw::Int; limit:
         if limit
             return Vector{BoundProblem}([bp_q_min, bp_q_max])
         else
-            return Vector{BoundProblem}([bp_q_min, bp_q_min_forward, bp_q_max,
-                bp_q_max_reverse, bp_y_min, bp_y_max, bp_z_min, bp_z_max])
+            return Vector{BoundProblem}([bp_q_min, bp_q_min_forward, bp_q_max, bp_q_max_reverse, bp_y_min, bp_y_max, bp_z_min, bp_z_max])
         end
     else
         return Vector{BoundProblem}([])
