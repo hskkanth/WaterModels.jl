@@ -113,6 +113,15 @@ end
 function _correct_des_pipes!(data::Dict{String, <:Any}, head_loss::String, viscosity::Float64, base_length::Float64, base_mass::Float64, base_time::Float64)
     capacity = _calc_capacity_max(data)
 
+    head_loss, viscosity = wm_data["head_loss"], wm_data["viscosity"]
+    func! = x -> _correct_des_pipes!(x, head_loss, viscosity, base_length, base_mass, base_time)
+    apply_wm!(func!, data; apply_to_subnetworks = true)
+end
+
+
+function _correct_des_pipes!(data::Dict{String, <:Any}, head_loss::String, viscosity::Float64, base_length::Float64, base_mass::Float64, base_time::Float64)
+    capacity = _calc_capacity_max(data)
+
     for des_pipe in values(data["des_pipe"])
         # Get common connecting node data for later use.
         node_fr = data["node"][string(des_pipe["node_fr"])]
@@ -168,6 +177,29 @@ function _correct_pipe_flow_bounds!(
     pipe["flow_min"], pipe["flow_max"] = flow_min, flow_max
     pipe["flow_min_forward"] = max(flow_min, get(pipe, "flow_min_forward", 0.0))
     pipe["flow_max_reverse"] = min(flow_max, get(pipe, "flow_max_reverse", 0.0))
+
+    if get(pipe, "y_min", 0.0) == 1.0
+        pipe["flow_min"] = max(0.0, pipe["flow_min"])
+        pipe["flow_min_forward"] = max(0.0, pipe["flow_min_forward"])
+        pipe["flow_max_reverse"] = 0.0
+        pipe["flow_max"] = max(0.0, pipe["flow_max"])
+    elseif get(pipe, "y_max", 1.0) == 0.0
+        pipe["flow_min"] = min(0.0, pipe["flow_min"])
+        pipe["flow_min_forward"] = 0.0
+        pipe["flow_max_reverse"] = min(0.0, pipe["flow_max_reverse"])
+        pipe["flow_max"] = min(0.0, pipe["flow_max"])
+    end
+
+    pipe["flow_max"] = max(pipe["flow_min"], pipe["flow_max"])
+    pipe["flow_min"] = min(pipe["flow_min"], pipe["flow_max"])
+    pipe["flow_min_forward"] = max(pipe["flow_min_forward"], pipe["flow_min"])
+    pipe["flow_min_forward"] = min(pipe["flow_min_forward"], pipe["flow_max"])
+    pipe["flow_max_reverse"] = min(pipe["flow_max_reverse"], pipe["flow_max"])
+    pipe["flow_max_reverse"] = max(pipe["flow_max_reverse"], pipe["flow_min"])
+
+    @assert pipe["flow_min"] <= pipe["flow_max"]
+    @assert get(pipe, "flow_min_forward", 0.0) <= max(0.0, pipe["flow_max"])
+    @assert min(0.0, pipe["flow_min"]) <= get(pipe, "flow_max_reverse", 0.0)
 end
 
 
@@ -330,7 +362,7 @@ end
 function _set_pipe_warm_start!(data::Dict{String, <:Any})
     for pipe in values(data["pipe"])
         flow_mid = 0.5 * (pipe["flow_min"] + pipe["flow_max"])
-        
+
         pipe["q_start"] = get(pipe, "q", flow_mid)
         pipe["qp_start"] = max(0.0, get(pipe, "q", flow_mid))
         pipe["qn_start"] = max(0.0, -get(pipe, "q", flow_mid))

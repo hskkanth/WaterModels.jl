@@ -1,5 +1,5 @@
 @testset "src/util/obbt.jl" begin
-    @testset "solve_obbt_owf! (pipe)" begin
+    @testset "solve_obbt! (pipe)" begin
         data = WaterModels.parse_file("../test/data/epanet/multinetwork/pipe-hw-lps.inp")
         set_flow_partitions_si!(data, 10.0, 1.0e-4)
         solve_obbt_owf!(data, milp_solver; model_type = LRDWaterModel, max_iter = 2, solve_relaxed = true)
@@ -14,7 +14,7 @@
         @test haskey(network_mn["nw"]["1"]["pipe"]["1"], "flow_max")
     end
 
-    @testset "solve_obbt_owf! (pump)" begin
+    @testset "solve_obbt! (pump)" begin
         data = WaterModels.parse_file("../test/data/epanet/multinetwork/pump-hw-lps.inp")
         set_flow_partitions_si!(data, 10.0, 1.0e-4)
         solve_obbt_owf!(data, milp_solver; model_type = LRDWaterModel, max_iter = 2, solve_relaxed = true)
@@ -27,7 +27,7 @@
         @test haskey(network_mn["nw"]["1"]["pump"]["1"], "flow_max")
     end
 
-    @testset "solve_obbt_owf! (regulator)" begin
+    @testset "solve_obbt! (regulator)" begin
         data = WaterModels.parse_file("../test/data/epanet/multinetwork/prv-hw-lps.inp")
         set_flow_partitions_si!(data, 10.0, 1.0e-4)
         solve_obbt_owf!(data, milp_solver; model_type = LRDWaterModel, max_iter = 2, solve_relaxed = true)
@@ -40,7 +40,7 @@
         @test haskey(network_mn["nw"]["2"]["regulator"]["2"], "flow_max")
     end
 
-    @testset "solve_obbt_owf! (short pipe)" begin
+    @testset "solve_obbt! (short pipe)" begin
         data = WaterModels.parse_file("../test/data/epanet/multinetwork/short-pipe-lps.inp")
         WaterModels.convert_short_pipes!(data)
         set_flow_partitions_si!(data, 10.0, 1.0e-4)
@@ -56,7 +56,7 @@
         @test haskey(network_mn["nw"]["1"]["short_pipe"]["1"], "flow_max")
     end
 
-    @testset "solve_obbt_owf! (valve)" begin
+    @testset "solve_obbt! (valve)" begin
         data = WaterModels.parse_file("../test/data/epanet/multinetwork/shutoff_valve-hw-lps.inp")
         set_flow_partitions_si!(data, 10.0, 1.0e-4)
         solve_obbt_owf!(data, milp_solver; model_type = LRDWaterModel, max_iter = 2, solve_relaxed = true)
