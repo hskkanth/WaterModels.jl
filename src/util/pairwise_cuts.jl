@@ -167,9 +167,9 @@ function _compute_pairwise_cuts!(wm::AbstractWaterModel, problem_sets::Array{_Pa
         elseif !(all(x -> isa(x, JuMP.VariableRef) && JuMP.is_binary(x), v_1_vars))
             # Add a cut relating a binary variable to a continuous variable.
             for (i, problem) in enumerate(problem_set.problems)
-                if (problem.sense === _MOI.MIN_SENSE && candidates[i] > v_1_lb)
+                if (problem.sense === JuMP.MOI.MIN_SENSE && candidates[i] > v_1_lb)
                     push!(cuts, _get_binary_continuous_cut(problem, candidates[i], v_1_lb, v_1_ub))
-                elseif (problem.sense === _MOI.MAX_SENSE && candidates[i] < v_1_ub)
+                elseif (problem.sense === JuMP.MOI.MAX_SENSE && candidates[i] < v_1_ub)
                     push!(cuts, _get_binary_continuous_cut(problem, candidates[i], v_1_lb, v_1_ub))
                 end
             end
@@ -204,7 +204,7 @@ end
 
 function _read_pairwise_cuts(path::String)
     cuts_array = Vector{_PairwiseCut}([])
-    
+
     for entry in JSON.parsefile(path)
         vid_1_network_index = Int(entry["variable_index_1"]["network_index"])
         vid_1_component_type = Symbol(entry["variable_index_1"]["component_type"])
@@ -223,7 +223,7 @@ function _read_pairwise_cuts(path::String)
         coefficient_1 = entry["coefficient_1"]
         coefficient_2 = entry["coefficient_2"]
         constant = entry["constant"]
-        
+
         push!(cuts_array, _PairwiseCut(coefficient_1, vid_1,
             coefficient_2, vid_2, constant))
     end

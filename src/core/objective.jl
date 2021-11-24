@@ -75,7 +75,7 @@ function objective_max_demand(wm::AbstractWaterModel)::JuMP.AffExpr
     end
 
     # Maximize the total amount of water volume delivered.
-    return JuMP.@objective(wm.model, _MOI.MAX_SENSE, objective)
+    return JuMP.@objective(wm.model, JuMP.MOI.MAX_SENSE, objective)
 end
 
 
