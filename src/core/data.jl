@@ -26,6 +26,25 @@ function _correct_flow_directions!(data::Dict{String,<:Any})
 end
 
 
+"Correct flow direction attribute of link-type components."
+function _correct_flow_direction!(comp::Dict{String, <:Any})
+    flow_direction = get(comp, "flow_direction", FLOW_DIRECTION_UNKNOWN)
+
+    if !isa(flow_direction, FLOW_DIRECTION)
+        # Correct "flow_direction" type to the enum type.
+        comp["flow_direction"] = FLOW_DIRECTION(flow_direction)
+    end
+
+    if get(comp, "flow_min", -Inf) > 0.0
+        # If minimum flow is positive, assume positively-directed flow.
+        comp["flow_direction"] = FLOW_DIRECTION_POSITIVE
+    elseif get(comp, "flow_max", Inf) < 0.0
+        # If maximum flow is negative, assume negatively-directed flow.
+        comp["flow_direction"] = FLOW_DIRECTION_NEGATIVE
+    end
+end
+
+
 function correct_statuses!(data::Dict{String,<:Any})
     apply_wm!(_correct_statuses!, data; apply_to_subnetworks = true)
 end
