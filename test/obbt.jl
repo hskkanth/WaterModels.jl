@@ -6,6 +6,7 @@
         @test haskey(data["pipe"]["1"], "flow_min")
         @test haskey(data["pipe"]["1"], "flow_max")
 
+        make_all_nondispatchable!(data)
         network_mn = WaterModels.make_multinetwork(data)
         set_flow_partitions_si!(network_mn, 10.0, 1.0e-4)
         solve_obbt_owf!(network_mn, milp_solver; model_type = LRDWaterModel,
@@ -20,6 +21,7 @@
         solve_obbt_owf!(data, milp_solver; model_type = LRDWaterModel, max_iter = 2, solve_relaxed = true)
         @test haskey(data["pump"]["1"], "flow_max")
 
+        make_all_nondispatchable!(data)
         network_mn = WaterModels.make_multinetwork(data)
         set_flow_partitions_si!(network_mn, 10.0, 1.0e-4)
         solve_obbt_owf!(network_mn, milp_solver; model_type = LRDWaterModel,
@@ -33,6 +35,7 @@
         solve_obbt_owf!(data, milp_solver; model_type = LRDWaterModel, max_iter = 2, solve_relaxed = true)
         @test haskey(data["regulator"]["2"], "flow_max")
 
+        make_all_nondispatchable!(data)
         network_mn = WaterModels.make_multinetwork(data)
         set_flow_partitions_si!(network_mn, 10.0, 1.0e-4)
         solve_obbt_owf!(network_mn, milp_solver; model_type = LRDWaterModel,
@@ -48,6 +51,7 @@
         @test haskey(data["short_pipe"]["1"], "flow_min")
         @test haskey(data["short_pipe"]["1"], "flow_max")
 
+        make_all_nondispatchable!(data)
         network_mn = WaterModels.make_multinetwork(data)
         set_flow_partitions_si!(network_mn, 10.0, 1.0e-4)
         solve_obbt_owf!(network_mn, milp_solver; model_type = LRDWaterModel,
@@ -63,10 +67,12 @@
         @test haskey(data["valve"]["1"], "flow_min")
         @test haskey(data["valve"]["1"], "flow_max")
 
+        make_all_nondispatchable!(data)
         network_mn = WaterModels.make_multinetwork(data)
         set_flow_partitions_si!(network_mn, 10.0, 1.0e-4)
         solve_obbt_owf!(network_mn, milp_solver; model_type = LRDWaterModel,
             max_iter = 2, use_relaxed_network = false, solve_relaxed = true)
+
         @test haskey(network_mn["nw"]["1"]["valve"]["1"], "flow_min")
         @test haskey(network_mn["nw"]["1"]["valve"]["1"], "flow_max")
     end
