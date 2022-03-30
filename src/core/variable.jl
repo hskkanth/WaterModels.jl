@@ -62,7 +62,7 @@ function variable_head(wm::AbstractWaterModel; nw::Int=nw_id_default, bounded::B
             # Get the nodes that are connected by the design pipe.
             node_fr = ref(wm, nw, :node, des_pipe["node_fr"])
             node_to = ref(wm, nw, :node, des_pipe["node_to"])
-            
+
             # Set the lower and upper bounds for the design pipe head difference.
             dhn_max = max(0.0, node_to["head_max"] - node_fr["head_min"])
             JuMP.set_lower_bound(dh_des_pipe[a], -dhn_max)
@@ -171,7 +171,7 @@ function variable_pump_power(wm::AbstractWaterModel; nw::Int=nw_id_default, boun
             # Get the nodes that are connected by the pump.
             node_fr = ref(wm, nw, :node, pump["node_fr"])
             node_to = ref(wm, nw, :node, pump["node_to"])
-    
+
             # Set the upper bound for the power variable.
             P_max = _calc_pump_power_max(pump, node_fr, node_to, rho_s, g_s)
             JuMP.set_upper_bound(P[a], P_max)
