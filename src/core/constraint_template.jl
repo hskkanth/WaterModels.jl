@@ -55,6 +55,7 @@ function constraint_flow_conservation(
     pump_fr, pump_to = _get_from_and_to_components(wm, i, :pump; nw = nw)
     regulator_fr, regulator_to = _get_from_and_to_components(wm, i, :regulator; nw = nw)
     short_pipe_fr, short_pipe_to = _get_from_and_to_components(wm, i, :short_pipe; nw = nw)
+    ne_short_pipe_fr, ne_short_pipe_to = _get_from_and_to_components(wm, i, :ne_short_pipe; nw = nw)
     valve_fr, valve_to = _get_from_and_to_components(wm, i, :valve; nw = nw)
 
     # Collect various indices for node-type components connected to node `i`.
@@ -90,6 +91,8 @@ function constraint_flow_conservation(
         regulator_to,
         short_pipe_fr,
         short_pipe_to,
+        ne_short_pipe_fr,
+        ne_short_pipe_to,
         valve_fr,
         valve_to,
         reservoirs,
@@ -126,6 +129,7 @@ function constraint_node_directionality(
     pump_fr, pump_to = _get_from_and_to_components(wm, i, :pump; nw = nw)
     regulator_fr, regulator_to = _get_from_and_to_components(wm, i, :regulator; nw = nw)
     short_pipe_fr, short_pipe_to = _get_from_and_to_components(wm, i, :short_pipe; nw = nw)
+    ne_short_pipe_fr, ne_short_pipe_to = _get_from_and_to_components(wm, i, :ne_short_pipe; nw = nw)
     valve_fr, valve_to = _get_from_and_to_components(wm, i, :valve; nw = nw)
 
     # Collect various indices for node-type components connected to node `i`.
@@ -147,6 +151,7 @@ function constraint_node_directionality(
         length(pump_to) +
         length(regulator_to) +
         length(short_pipe_to) +
+        length(ne_short_pipe_to) +
         length(valve_to)
 
     # Get the out degree of node `i`.
@@ -156,6 +161,7 @@ function constraint_node_directionality(
         length(pump_fr) +
         length(regulator_fr) +
         length(short_pipe_fr) +
+        length(ne_short_pipe_fr) +
         length(valve_fr)
 
     # Initialize the directionality constraint dictionary entry.
@@ -181,6 +187,8 @@ function constraint_node_directionality(
             regulator_to,
             short_pipe_fr,
             short_pipe_to,
+            ne_short_pipe_fr,
+            ne_short_pipe_to,
             valve_fr,
             valve_to,
         )
@@ -200,6 +208,8 @@ function constraint_node_directionality(
             regulator_to,
             short_pipe_fr,
             short_pipe_to,
+            ne_short_pipe_fr,
+            ne_short_pipe_to,
             valve_fr,
             valve_to,
         )
@@ -219,6 +229,8 @@ function constraint_node_directionality(
             regulator_to,
             short_pipe_fr,
             short_pipe_to,
+            ne_short_pipe_fr,
+            ne_short_pipe_to,
             valve_fr,
             valve_to,
         )
@@ -238,6 +250,8 @@ function constraint_node_directionality(
             regulator_to,
             short_pipe_fr,
             short_pipe_to,
+            ne_short_pipe_fr,
+            ne_short_pipe_to,
             valve_fr,
             valve_to,
         )
@@ -1016,6 +1030,38 @@ function constraint_short_pipe_head(
     _initialize_con_dict(wm, :short_pipe_head, nw = nw, is_array = true)
     con(wm, nw, :short_pipe_head)[a] = Array{JuMP.ConstraintRef}([])
     constraint_short_pipe_head(wm, nw, a, node_fr, node_to)
+end
+
+
+### Network Expansion Short Pipe Constraints ###
+function constraint_short_pipe_flow_ne(
+    wm::AbstractWaterModel,
+    a::Int;
+    nw::Int = nw_id_default,
+    kwargs...,
+)
+    ne_short_pipe = ref(wm, nw, :ne_short_pipe, a)
+    q_max_reverse = min(get(ne_short_pipe, "flow_max_reverse", 0.0), ne_short_pipe["flow_max"])
+    q_min_forward = max(get(ne_short_pipe, "flow_min_forward", 0.0), ne_short_pipe["flow_min"])
+
+    _initialize_con_dict(wm, :short_pipe_flow_ne, nw = nw, is_array = true)
+    con(wm, nw, :short_pipe_flow_ne)[a] = Array{JuMP.ConstraintRef}([])
+    constraint_short_pipe_flow_ne(wm, nw, a, q_max_reverse, q_min_forward)
+end
+
+
+function constraint_short_pipe_head_ne(
+    wm::AbstractWaterModel,
+    a::Int;
+    nw::Int = nw_id_default,
+    kwargs...,
+)
+    node_fr = ref(wm, nw, :ne_short_pipe, a)["node_fr"]
+    node_to = ref(wm, nw, :ne_short_pipe, a)["node_to"]
+
+    _initialize_con_dict(wm, :short_pipe_head_ne, nw = nw, is_array = true)
+    con(wm, nw, :short_pipe_head_ne)[a] = Array{JuMP.ConstraintRef}([])
+    constraint_short_pipe_head_ne(wm, nw, a, node_fr, node_to)
 end
 
 

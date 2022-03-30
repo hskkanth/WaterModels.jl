@@ -196,7 +196,7 @@ function variable_flow(
     bounded::Bool = true,
     report::Bool = true,
 )
-    for name in ["des_pipe", "pipe", "pump", "regulator", "short_pipe", "valve"]
+    for name in _LINK_COMPONENTS
         # Create directed flow (`qp` and `qn`) variables for each component.
         _variable_component_flow(wm, name; nw = nw, bounded = bounded, report = report)
 
@@ -850,7 +850,8 @@ function _gather_directionality_data(
     # Collect direction variable references per component.
     y_pipe, y_des_pipe = var(wm, n, :y_pipe), var(wm, n, :y_des_pipe)
     y_pump, y_regulator = var(wm, n, :y_pump), var(wm, n, :y_regulator)
-    y_short_pipe, y_valve = var(wm, n, :y_short_pipe), var(wm, n, :y_valve)
+    y_short_pipe, y_ne_short_pipe = var(wm, n, :y_short_pipe), var(wm, n, :y_ne_short_pipe)
+    y_valve = var(wm, n, :y_valve)
 
     sum_in = JuMP.@expression(
         wm.model,
@@ -859,6 +860,7 @@ function _gather_directionality_data(
         sum(y_pump[a] for a in pump_to) +
         sum(y_regulator[a] for a in regulator_to) +
         sum(y_short_pipe[a] for a in short_pipe_to) +
+        sum(y_ne_short_pipe[a] for a in ne_short_pipe_to) +
         sum(y_valve[a] for a in valve_to)
     )
 
@@ -869,6 +871,7 @@ function _gather_directionality_data(
         sum(y_pump[a] for a in pump_fr) +
         sum(y_regulator[a] for a in regulator_fr) +
         sum(y_short_pipe[a] for a in short_pipe_fr) +
+        sum(y_ne_short_pipe[a] for a in ne_short_pipe_fr) +
         sum(y_valve[a] for a in valve_fr)
     )
 
@@ -879,6 +882,7 @@ function _gather_directionality_data(
         length(pump_to) +
         length(regulator_to) +
         length(short_pipe_to) +
+        length(ne_short_pipe_to) +
         length(valve_to)
 
     # Get the out degree of node `i`.
@@ -888,6 +892,7 @@ function _gather_directionality_data(
         length(pump_fr) +
         length(regulator_fr) +
         length(short_pipe_fr) +
+        length(ne_short_pipe_fr) +
         length(valve_fr)
 
     return sum_in, sum_out, in_length, out_length
@@ -952,6 +957,8 @@ function constraint_intermediate_directionality(
         regulator_to,
         short_pipe_fr,
         short_pipe_to,
+        ne_short_pipe_fr,
+        ne_short_pipe_to,
         valve_fr,
         valve_to,
     )
@@ -1023,6 +1030,8 @@ function constraint_source_directionality(
         regulator_to,
         short_pipe_fr,
         short_pipe_to,
+        ne_short_pipe_fr,
+        ne_short_pipe_to,
         valve_fr,
         valve_to,
     )
@@ -1089,6 +1098,8 @@ function constraint_sink_directionality(
         regulator_to,
         short_pipe_fr,
         short_pipe_to,
+        ne_short_pipe_fr,
+        ne_short_pipe_to,
         valve_fr,
         valve_to,
     )

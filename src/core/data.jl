@@ -477,7 +477,7 @@ function make_single_network(data::Dict{String, <:Any})
     nw_1_str = string(nws[1])
 
     for comp_type in ["tank", "regulator", "pump", "des_pipe", "pump_group", "demand",
-        "tank_group", "reservoir", "node", "short_pipe", "valve", "pipe"]
+        "tank_group", "reservoir", "node", "short_pipe", "ne_short_pipe", "valve", "pipe"]
         if !haskey(data_s["nw"][nw_1_str], comp_type)
             continue
         end
@@ -558,6 +558,7 @@ function _set_flow_start!(data::Dict{String,<:Any})
     set_start!(data, "pump", "q", "q_pump_start")
     set_start!(data, "regulator", "q", "q_regulator_start")
     set_start!(data, "short_pipe", "q", "q_short_pipe_start")
+    set_start!(data, "ne_short_pipe", "q", "q_ne_short_pipe_start")
     set_start!(data, "valve", "q", "q_valve_start")
     set_start!(data, "reservoir", "q", "q_reservoir_start")
     set_start!(data, "tank", "q", "q_tank_start")
@@ -574,6 +575,7 @@ function _set_flow_direction_start!(data::Dict{String,<:Any})
     set_direction_start_from_flow!(data, "pump", "q", "y_pump_start")
     set_direction_start_from_flow!(data, "regulator", "q", "y_regulator_start")
     set_direction_start_from_flow!(data, "short_pipe", "q", "y_short_pipe_start")
+    set_direction_start_from_flow!(data, "ne_short_pipe", "q", "y_ne_short_pipe_start")
     set_direction_start_from_flow!(data, "valve", "q", "y_valve_start")
 end
 
@@ -622,6 +624,7 @@ end
 function _fix_all_flow_directions!(data::Dict{String,<:Any})
     _fix_flow_directions!(data, "pipe")
     _fix_flow_directions!(data, "short_pipe")
+    _fix_flow_directions!(data, "ne_short_pipe")
     _fix_flow_directions!(data, "pump")
     _fix_flow_directions!(data, "regulator")
     _fix_flow_directions!(data, "valve")
@@ -1231,5 +1234,6 @@ function _set_warm_start!(data::Dict{String, <:Any})
     _set_pipe_warm_start!(data)
     _set_pump_warm_start!(data)
     _set_short_pipe_warm_start!(data)
+    _set_ne_short_pipe_warm_start!(data)
     _set_valve_warm_start!(data)
 end

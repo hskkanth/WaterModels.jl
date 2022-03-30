@@ -31,7 +31,7 @@ piecewise-linear modeling of the relaxation constraints, e.g., `x_p_pipe[a]`
 and `x_n_pipe[a]` for `a` in `pipe`.
 """
 function variable_flow(wm::AbstractPWLRDModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
-    for name in ["des_pipe", "pipe", "pump", "regulator", "short_pipe", "valve"]
+    for name in _LINK_COMPONENTS
         # Create directed flow (`qp` and `qn`) variables for each component.
         _variable_component_flow(wm, name; nw = nw, bounded = bounded, report = report)
 

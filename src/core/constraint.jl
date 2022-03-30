@@ -45,9 +45,9 @@ function constraint_flow_conservation(
     # Collect flow variable references per component.
     q_pipe, q_des_pipe = var(wm, n, :q_pipe), var(wm, n, :q_des_pipe)
     q_pump, q_regulator = var(wm, n, :q_pump), var(wm, n, :q_regulator)
-    q_short_pipe, q_valve = var(wm, n, :q_short_pipe), var(wm, n, :q_valve)
-    q_reservoir, q_tank = var(wm, n, :q_reservoir), var(wm, n, :q_tank)
-    q_demand = var(wm, n, :q_demand)
+    q_short_pipe, q_ne_short_pipe = var(wm, n, :q_short_pipe), var(wm, n, :q_ne_short_pipe)
+    q_valve, q_reservoir = var(wm, n, :q_valve), var(wm, n, :q_reservoir)
+    q_tank, q_demand = var(wm, n, :q_tank), var(wm, n, :q_demand)
 
     # Add the flow conservation constraint.
     con(wm, n, :flow_conservation)[i] = JuMP.@constraint(
@@ -62,6 +62,8 @@ function constraint_flow_conservation(
         + sum(q_regulator[a] for a in regulator_to)
         - sum(q_short_pipe[a] for a in short_pipe_fr)
         + sum(q_short_pipe[a] for a in short_pipe_to)
+        - sum(q_ne_short_pipe[a] for a in ne_short_pipe_fr)
+        + sum(q_ne_short_pipe[a] for a in ne_short_pipe_to)
         - sum(q_valve[a] for a in valve_fr)
         + sum(q_valve[a] for a in valve_to) ==
         - sum(q_reservoir[k] for k in reservoirs)
