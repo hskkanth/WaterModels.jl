@@ -69,6 +69,10 @@ function _solve_bound_problem!(wm::AbstractWaterModel, bound_problem::BoundProbl
         candidate = bound_problem.bound
     end
 
+    if ismultinetwork(wm)
+        JuMP.set_binary.(vars_relaxed)
+    end
+
     # Update the candidate if it's for a discrete variable.
     if var_is_discrete && bound_problem.sense === JuMP.MOI.MIN_SENSE
         candidate = candidate > 0.01 ? 1.0 : candidate
