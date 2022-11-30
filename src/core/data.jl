@@ -105,6 +105,17 @@ function _set_flow_partitions_num!(data::Dict{String, <:Any}, num_points::Int)
             pump["flow_partition"] = [flow_min]
         end
     end
+
+    for pump in values(get(data, "ne_pump", Dict{String, Any}()))
+        flow_min, flow_max = pump["flow_min_forward"], pump["flow_max"]
+
+        if flow_min < flow_max
+            partition = range(flow_min, flow_max; length = num_points)
+            pump["flow_partition"] = collect(partition)
+        else
+            pump["flow_partition"] = [flow_min]
+        end
+    end
 end
 
 
@@ -143,6 +154,11 @@ function _set_flow_partitions_si!(
 
     # Set partitions for all pumps in the network.
     for pump in values(get(data, "pump", Dict{String, Any}()))
+        set_pump_flow_partition!(pump, error_tolerance, length_tolerance)
+    end
+
+    # Set partitions for all expansion pumps in the network.
+    for pump in values(get(data, "ne_pump", Dict{String, Any}()))
         set_pump_flow_partition!(pump, error_tolerance, length_tolerance)
     end
 end
@@ -476,7 +492,7 @@ function make_single_network(data::Dict{String, <:Any})
     nws = sort([parse(Int, x) for x in keys(data["nw"])])
     nw_1_str = string(nws[1])
 
-    for comp_type in ["tank", "regulator", "pump", "des_pipe", "pump_group", "demand",
+    for comp_type in ["tank", "regulator", "pump", "ne_pump", "des_pipe", "pump_group", "demand",
         "tank_group", "reservoir", "node", "short_pipe", "ne_short_pipe", "valve", "pipe"]
         if !haskey(data_s["nw"][nw_1_str], comp_type)
             continue
@@ -556,6 +572,7 @@ end
 function _set_flow_start!(data::Dict{String,<:Any})
     set_start!(data, "pipe", "q", "q_pipe_start")
     set_start!(data, "pump", "q", "q_pump_start")
+    set_start!(data, "ne_pump", "q", "q_ne_pump_start")
     set_start!(data, "regulator", "q", "q_regulator_start")
     set_start!(data, "short_pipe", "q", "q_short_pipe_start")
     set_start!(data, "ne_short_pipe", "q", "q_ne_short_pipe_start")
@@ -573,6 +590,7 @@ end
 function _set_flow_direction_start!(data::Dict{String,<:Any})
     set_direction_start_from_flow!(data, "pipe", "q", "y_pipe_start")
     set_direction_start_from_flow!(data, "pump", "q", "y_pump_start")
+    set_direction_start_from_flow!(data, "ne_pump", "q", "y_ne_pump_start")
     set_direction_start_from_flow!(data, "regulator", "q", "y_regulator_start")
     set_direction_start_from_flow!(data, "short_pipe", "q", "y_short_pipe_start")
     set_direction_start_from_flow!(data, "ne_short_pipe", "q", "y_ne_short_pipe_start")
@@ -626,6 +644,7 @@ function _fix_all_flow_directions!(data::Dict{String,<:Any})
     _fix_flow_directions!(data, "short_pipe")
     _fix_flow_directions!(data, "ne_short_pipe")
     _fix_flow_directions!(data, "pump")
+    _fix_flow_directions!(data, "ne_pump")
     _fix_flow_directions!(data, "regulator")
     _fix_flow_directions!(data, "valve")
 end
@@ -981,6 +1000,60 @@ function _apply_pump_unit_transform!(
     end
 end
 
+function _make_per_unit_ne_pumps!(
+    data::Dict{String,<:Any}, transform_mass::Function, transform_flow::Function,
+    transform_length::Function, transform_time::Function)
+    wm_data = get_wm_data(data)
+
+    power_scalar = transform_mass(1.0) * transform_length(1.0)^2 / transform_time(1.0)^3
+    energy_scalar = transform_mass(1.0) * transform_length(1.0)^2 / transform_time(1.0)^2
+
+    for (i, pump) in wm_data["ne_pump"]
+        pump["head_curve"] = [(transform_flow(x[1]), x[2]) for x in pump["head_curve"]]
+        pump["head_curve"] = [(x[1], transform_length(x[2])) for x in pump["head_curve"]]
+
+        if haskey(pump, "efficiency_curve")
+            pump["efficiency_curve"] = [(transform_flow(x[1]), x[2]) for x in pump["efficiency_curve"]]
+        end
+
+        if haskey(pump, "energy_price")
+            pump["energy_price"] /= energy_scalar
+        end
+
+        if haskey(pump, "power_fixed")
+            pump["power_fixed"] *= power_scalar
+        end
+
+        if haskey(pump, "min_inactive_time")
+            pump["min_inactive_time"] = transform_time(pump["min_inactive_time"])
+        end
+
+        if haskey(pump, "min_active_time")
+            pump["min_active_time"] = transform_time(pump["min_active_time"])
+        end
+
+        if haskey(pump, "power_per_unit_flow")
+            pump["power_per_unit_flow"] *= power_scalar / transform_flow(1.0)
+        end
+    end
+
+    if haskey(wm_data, "time_series") && haskey(wm_data["time_series"], "ne_pump")
+        for pump in values(wm_data["time_series"]["ne_pump"])
+            if haskey(pump, "energy_price")
+                pump["energy_price"] ./= energy_scalar
+            end
+
+            if haskey(pump, "power_fixed")
+                pump["power_fixed"] .*= power_scalar
+            end
+
+            if haskey(pump, "power_per_unit_flow")
+                pump["power_per_unit_flow"] .*= power_scalar / transform_flow(1.0)
+            end
+        end
+    end
+end
+
 
 function _apply_regulator_unit_transform!(data::Dict{String,<:Any}, transform_head::Function, transform_length::Function)
     wm_data = get_wm_data(data)
@@ -1233,6 +1306,7 @@ function _set_warm_start!(data::Dict{String, <:Any})
 
     _set_pipe_warm_start!(data)
     _set_pump_warm_start!(data)
+    _set_ne_pump_warm_start!(data)
     _set_short_pipe_warm_start!(data)
     _set_ne_short_pipe_warm_start!(data)
     _set_valve_warm_start!(data)
