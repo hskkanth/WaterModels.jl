@@ -857,11 +857,12 @@ function constraint_short_pipe_flow_ne(
     a::Int,
     q_max_reverse::Float64,
     q_min_forward::Float64,
+    n_1::Int,
 )
 # println("Using NC ******* short pipe *********")
     # Get flow and status variables for the short pipe.
     q = var(wm, n, :q_ne_short_pipe, a)
-    z = var(wm, n, :z_ne_short_pipe, a)
+    z = var(wm, n_1, :z_ne_short_pipe, a)
 
     # Get lower and upper bounds for the expansion short pipe's flow.
     q_lb = JuMP.lower_bound(q)
@@ -870,7 +871,6 @@ function constraint_short_pipe_flow_ne(
     # Add constraints limiting the flow based on expansion status.
     c_1 = JuMP.@constraint(wm.model, q <= q_ub * z)
     c_2 = JuMP.@constraint(wm.model, q >= q_lb * z)
-
     # Append the constraint array.
     append!(con(wm, n, :short_pipe_flow_ne, a), [c_1, c_2])
 end
@@ -916,9 +916,10 @@ function constraint_short_pipe_head_ne(
     a::Int,
     node_fr::Int,
     node_to::Int,
+    n_1::Int,
 )
     # Get expansion shot pipe status variable.
-    z = var(wm, n, :z_ne_short_pipe, a)
+    z = var(wm, n_1, :z_ne_short_pipe, a)
 
     # Get head variables for from and to nodes.
     h_i, h_j = var(wm, n, :h, node_fr), var(wm, n, :h, node_to)

@@ -91,7 +91,7 @@ function objective_ne(wm::AbstractWaterModel)::JuMP.AffExpr
     # Initialize the objective expression to zero.
     objective = JuMP.AffExpr(0.0)
 
-n = first_network_id
+    n = first_network_id
     # Get the set of network expansion short pipes at time index `n`.
     for (a, ne_short_pipe) in ref(wm, n, :ne_short_pipe)
         # Add the cost of network expansion component `a` at time period `n`.

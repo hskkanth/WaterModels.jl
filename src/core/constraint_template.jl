@@ -1274,7 +1274,8 @@ function constraint_short_pipe_flow_ne(
 
     _initialize_con_dict(wm, :short_pipe_flow_ne, nw = nw, is_array = true)
     con(wm, nw, :short_pipe_flow_ne)[a] = Array{JuMP.ConstraintRef}([])
-    constraint_short_pipe_flow_ne(wm, nw, a, q_max_reverse, q_min_forward)
+    first_nw = sort(collect(nw_ids(wm)))[1]
+    constraint_short_pipe_flow_ne(wm, nw, a, q_max_reverse, q_min_forward, first_nw)
 end
 
 
@@ -1289,7 +1290,8 @@ function constraint_short_pipe_head_ne(
 
     _initialize_con_dict(wm, :short_pipe_head_ne, nw = nw, is_array = true)
     con(wm, nw, :short_pipe_head_ne)[a] = Array{JuMP.ConstraintRef}([])
-    constraint_short_pipe_head_ne(wm, nw, a, node_fr, node_to)
+    first_nw = sort(collect(nw_ids(wm)))[1]
+    constraint_short_pipe_head_ne(wm, nw, a, node_fr, node_to, first_nw)
 end
 
 

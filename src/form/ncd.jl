@@ -902,11 +902,12 @@ function constraint_short_pipe_flow_ne(
     a::Int,
     q_max_reverse::Float64,
     q_min_forward::Float64,
+    n_1::Int,
 )
 # println("Using NCD ******* short pipe *********")
     # Get expansion short pipe flow, direction, and status variables.
     qp, qn = var(wm, n, :qp_ne_short_pipe, a), var(wm, n, :qn_ne_short_pipe, a)
-    y, z = var(wm, n, :y_ne_short_pipe, a), var(wm, n, :z_ne_short_pipe, a)
+    y, z = var(wm, n, :y_ne_short_pipe, a), var(wm, n_1, :z_ne_short_pipe, a)
 
     # The expansion short pipe's flow is constrained by direction and build status.
     qp_ub, qn_ub = JuMP.upper_bound(qp), JuMP.upper_bound(qn)
@@ -919,7 +920,6 @@ function constraint_short_pipe_flow_ne(
     qp_min_forward, qn_min_forward = max(0.0, q_min_forward), max(0.0, -q_max_reverse)
     c_5 = JuMP.@constraint(wm.model, qp >= qp_min_forward * (y + z - 1.0))
     c_6 = JuMP.@constraint(wm.model, qn >= qn_min_forward * (z - y))
-
     # Append the constraint array.
     append!(con(wm, n, :short_pipe_flow_ne, a), [c_1, c_2, c_3, c_4, c_5, c_6])
 end

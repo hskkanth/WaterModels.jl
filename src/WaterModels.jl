@@ -93,6 +93,7 @@ include("prob/owf.jl")
 include("prob/des.jl")
 include("prob/mdd.jl")
 include("prob/ne.jl")
+include("prob/sk_ne.jl")
 
 include("util/relax.jl")
 include("util/variable_index.jl")
