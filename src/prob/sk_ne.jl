@@ -76,13 +76,18 @@ function build_mn_ec_ls(wm::AbstractWaterModel)
         # Main continuous variables
         variable_head(wm; nw = n)
         variable_flow(wm; nw = n)
-        
-
 
         # Node Attachment variables
         variable_demand_flow(wm; nw = n)
         variable_reservoir_flow(wm; nw = n)
         variable_tank_flow(wm; nw=n)
+
+
+                #Pump
+                variable_pump_head_gain(wm; nw=n)
+                variable_pump_indicator(wm; nw=n)
+                # variable_pump_power(wm; nw=n)
+
 
     #Constraints
         # Flow conservation at all nodes.
@@ -108,6 +113,17 @@ function build_mn_ec_ls(wm::AbstractWaterModel)
             constraint_short_pipe_head_ne(wm, a; nw=n)
             constraint_short_pipe_flow_ne(wm, a; nw=n)
         end
+
+
+
+            # Constraints on pump flows, heads, and physics.
+            for a in ids(wm, :pump; nw=n)
+                constraint_on_off_pump_head(wm, a; nw=n)
+                constraint_on_off_pump_head_gain(wm, a; nw=n)
+                constraint_on_off_pump_flow(wm, a; nw=n)
+                # constraint_on_off_pump_power(wm, a; nw=n)
+            end
+
 
     end
 
