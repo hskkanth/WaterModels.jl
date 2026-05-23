@@ -387,7 +387,8 @@ function constraint_on_off_des_pipe_flow(
 )
     # Get des_pipe status variable.
     qp, qn = var(wm, n, :qp_des_pipe, a), var(wm, n, :qn_des_pipe, a)
-    y, z = var(wm, n, :y_des_pipe, a), var(wm, n, :z_des_pipe, a)
+    n_1 = sort(collect(nw_ids(wm)))[1]
+    y, z = var(wm, n, :y_des_pipe, a), var(wm, n_1, :z_des_pipe, a)
 
     # If the des_pipe is inactive, flow must be zero.
     qp_ub, qn_ub = JuMP.upper_bound(qp), JuMP.upper_bound(qn)
@@ -438,7 +439,8 @@ function constraint_on_off_des_pipe_head(
 
     # Get des_pipe direction and status variable.
     y = var(wm, n, :y_des_pipe, a)
-    z = var(wm, n, :z_des_pipe, a)
+    n_1 = sort(collect(nw_ids(wm)))[1]
+    z = var(wm, n_1, :z_des_pipe, a)
 
     # If the des_pipe is off, decouple the head difference relationship.
     dhp_ub, dhn_ub = JuMP.upper_bound(dhp), JuMP.upper_bound(dhn)

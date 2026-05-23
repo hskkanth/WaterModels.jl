@@ -188,6 +188,11 @@ function parse_epanet(filename::String; ne_filename::String = "")
         _read_ne_short_pipe!(epanet_data)
     end
 
+    # Parse [NE_PIPES] section.
+    if(!isempty(ne_filename))
+        _read_ne_pipe!(epanet_data)
+    end
+
     # Parse [PUMPS] section.
     _read_pump!(epanet_data)
 
@@ -1104,6 +1109,81 @@ function _read_ne_short_pipe!(data::Dict{String,<:Any})
     data["ne_short_pipe"] = _transform_component_indices(data["ne_short_pipe"])
 end
 
+function _read_ne_pipe!(data::Dict{String,<:Any})
+    # Initialize dictionary associated with design pipes.
+    data["des_pipe"] = Dict{String,Dict{String,Any}}()
+
+    # Initialize a temporary index to be updated while parsing.
+    index::Int = 0
+
+    # Loop over all lines in the [NE_PIPES] section and parse each.
+    for (line_number, line) in data["section"]["[NE_PIPES]"]
+        current = split(split(line, ";")[1])
+        length(current) == 0 && continue # Skip.
+
+        # Initialize the des_pipe entry to be added.
+        des_pipe = Dict{String,Any}("name" => current[1], "status" => STATUS_ACTIVE)
+        des_pipe["source_id"] = ["des_pipe", current[1]]
+        des_pipe["node_fr"] = data["node_map"][current[2]]
+        des_pipe["node_to"] = data["node_map"][current[3]]
+
+        # Store all measurements associated with des_pipes in metric units.
+        if data["flow_units"] == "LPS" || data["flow_units"] == "CMH"
+            # Retain the original value (in meters).
+            des_pipe["length"] = parse(Float64, current[4])
+
+            # Convert diameter from millimeters to meters.
+            des_pipe["diameter"] = 0.001 * parse(Float64, current[5])
+
+            if data["head_loss"] == "D-W" # If Darcy-Weisbach head loss is used...
+                # Convert roughness from millimeters to meters.
+                des_pipe["roughness"] = 0.001 * parse(Float64, current[6])
+            elseif data["head_loss"] == "H-W" # If Hazen-Williams head loss is used...
+                # Retain the original value (unitless).
+                des_pipe["roughness"] = parse(Float64, current[6])
+            end
+        elseif data["flow_units"] == "GPM" # If gallons per minute...
+            # Convert length from feet to meters.
+            des_pipe["length"] = 0.3048 * parse(Float64, current[4])
+
+            # Convert diameter from inches to meters.
+            des_pipe["diameter"] = 0.0254 * parse(Float64, current[5])
+
+            if data["head_loss"] == "D-W" # If Darcy-Weisbach head loss is used...
+                # Convert roughness from millifeet to meters.
+                des_pipe["roughness"] = 3.048e-4 * parse(Float64, current[6])
+            elseif data["head_loss"] == "H-W" # If Hazen-Williams head loss is used...
+                # Retain the original value (unitless).
+                des_pipe["roughness"] = parse(Float64, current[6])
+            end
+        else
+            error("Could not find a valid \"units\" option type.")
+        end
+
+        # Parse minor loss data (unitless).
+        des_pipe["minor_loss"] = parse(Float64, current[7])
+
+        # Derive important metadata from existing data.
+        des_pipe["has_valve"] = uppercase(current[8]) in ["CV", "CLOSED"]
+        des_pipe["flow_direction"] = uppercase(current[8]) == "CV" ? FLOW_DIRECTION_POSITIVE : FLOW_DIRECTION_UNKNOWN
+
+
+        des_pipe["construction_cost"] = parse(Float64,current[9])
+
+        # Add a temporary index to be used in the data dictionary.
+        des_pipe["index"] = string(index += 1)
+
+        # Append the des_pipe entry to the data dictionary.
+        data["des_pipe"][current[1]] = des_pipe
+    end
+
+    # Replace with new dictionaries that use integer component indices.
+    data["des_pipe"] = _transform_component_indices(data["des_pipe"])
+end
+
+
+
+
 function _read_pump!(data::Dict{String,<:Any})
     # Initialize dictionaries associated with pumps.
     data["pump"] = Dict{String,Dict{String,Any}}()
@@ -1742,4 +1822,5 @@ _NE_INP_SECTIONS = [
     "[NE_PUMPS]",
     "[NE_TANKS]",
     "[NE_SHORT_PIPES]",
+    "[NE_PIPES]",
 ]

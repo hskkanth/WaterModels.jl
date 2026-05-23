@@ -26,6 +26,20 @@ function objective_min_ec_ls(wm::AbstractWaterModel)::JuMP.AffExpr
         JuMP.add_to_expression!(objective, term)
     end
 
+    # Get the set of design pipes at time index `n`.
+    for (a, des_pipe) in ref(wm, n, :des_pipe)
+        # Add the cost of network expansion component `a` at time period `n`.
+        term = des_pipe["construction_cost"] * var(wm, n, :z_des_pipe, a)
+        JuMP.add_to_expression!(objective, term)
+    end
+
+    # Get the set of network expansion pumps at time index `n`.
+    for (a, ne_pump) in ref(wm, n, :ne_pump)
+        # Add the cost of network expansion component `a` at time period `n`.
+        term = ne_pump["construction_cost"] * var(wm, n, :x_ne_pump, a)
+        JuMP.add_to_expression!(objective, term)
+    end
+
     # Get all network IDs in the multinetwork.
     network_ids = sort(collect(nw_ids(wm)))
 
@@ -70,6 +84,8 @@ function build_mn_ec_ls(wm::AbstractWaterModel)
     # Variables
         # Binary variables
         variable_ne_short_pipe_indicator(wm; nw=n_1)
+        variable_des_pipe_indicator(wm; nw=n_1)
+        variable_ne_pump_build(wm; nw=n_1)
     # Components involved: reservoirs, pipes, demands
     for n in network_ids_inner
 
@@ -82,12 +98,14 @@ function build_mn_ec_ls(wm::AbstractWaterModel)
         variable_reservoir_flow(wm; nw = n)
         variable_tank_flow(wm; nw=n)
 
-
-                #Pump
-                variable_pump_head_gain(wm; nw=n)
-                variable_pump_indicator(wm; nw=n)
-                # variable_pump_power(wm; nw=n)
-
+        #Pump
+        variable_pump_head_gain(wm; nw=n)
+        variable_pump_indicator(wm; nw=n)
+        # variable_pump_power(wm; nw=n)
+        #Ne Pump
+        variable_ne_pump_head_gain(wm; nw=n)
+        variable_ne_pump_indicator(wm; nw=n)
+        # variable_ne_pump_power(wm;nw=n)
 
     #Constraints
         # Flow conservation at all nodes.
@@ -102,6 +120,13 @@ function build_mn_ec_ls(wm::AbstractWaterModel)
             constraint_pipe_head_loss(wm, a; nw=n)
         end
 
+        # # Constraints on design pipe flows, heads, and physics.
+        for a in ids(wm, :des_pipe; nw=n)
+            constraint_on_off_des_pipe_head(wm, a; nw=n)
+            constraint_on_off_des_pipe_head_loss(wm, a; nw=n)
+            constraint_on_off_des_pipe_flow(wm, a; nw=n)
+        end
+
         # Constraints on short pipe flows and heads.
         for a in ids(wm, :short_pipe; nw=n)
             constraint_short_pipe_head(wm, a; nw=n)
@@ -114,33 +139,81 @@ function build_mn_ec_ls(wm::AbstractWaterModel)
             constraint_short_pipe_flow_ne(wm, a; nw=n)
         end
 
+        # Constraints on pump flows, heads, and physics.
+        for a in ids(wm, :pump; nw=n)
+            constraint_on_off_pump_head(wm, a; nw=n)
+            constraint_on_off_pump_head_gain(wm, a; nw=n)
+            constraint_on_off_pump_flow(wm, a; nw=n)
+            # constraint_on_off_pump_power(wm, a; nw=n)
+        end
 
-
-            # Constraints on pump flows, heads, and physics.
-            for a in ids(wm, :pump; nw=n)
-                constraint_on_off_pump_head(wm, a; nw=n)
-                constraint_on_off_pump_head_gain(wm, a; nw=n)
-                constraint_on_off_pump_flow(wm, a; nw=n)
-                # constraint_on_off_pump_power(wm, a; nw=n)
-            end
-
-
+        # Constraints on expansion pump flows, heads, and physics.
+        for a in ids(wm, :ne_pump; nw=n)
+            constraint_on_off_pump_head_ne(wm, a; nw=n)
+            constraint_on_off_pump_head_gain_ne(wm, a; nw=n)
+            constraint_on_off_pump_flow_ne(wm, a; nw=n)
+            # constraint_on_off_pump_power_ne(wm, a; nw=n)
+            constraint_on_off_pump_build_ne(wm, a; nw=n)
+        end
     end
 
 
-
-    if length(network_ids) > 1
-        # Initialize head variables for the final time index.
-        variable_head(wm; nw = network_ids[end])
-
-        # Constraints on network expansion variables.
-        # for n_2 in network_ids[2:end-1]
-        #     # Constrain short pipe selection variables based on the initial time index.
-        #     for i in ids(wm, :ne_short_pipe; nw = n_2)
-        #         constraint_ne_short_pipe_selection(wm, i, n_1, n_2)
-        #     end
-        # end
-    end
+    multinetwork_tank_constraints(wm, network_ids)
+    
+    
+    ###### End of Tank constraints for multi-network formulation ######
 
     objective_min_ec_ls(wm)
 end
+
+
+function multinetwork_tank_constraints(wm::AbstractWaterModel, network_ids::Vector{Int64})
+     ###### Tank constraints for multi-network formulation ######
+    # Set initial conditions of tanks.
+    n_1 = network_ids[1]
+    n_f = network_ids[end]
+
+    tank_volume_reset_time_points = Set(get(wm.ref[:it][wm_it_sym], :tank_volume_reset_time_points, Int[]))
+    tank_volume_recovery_time_points = Set(get(wm.ref[:it][wm_it_sym], :tank_volume_recovery_time_points, Int[]))
+
+    push!(tank_volume_reset_time_points, n_1)
+    push!(tank_volume_recovery_time_points, n_f)
+
+
+    if length(network_ids) > 1
+        
+        # Initialize head variables for the final time index.
+        variable_head(wm; nw = network_ids[end])
+
+        n_prev = n_1
+        # Constraints on tank volumes.
+        for n in network_ids
+            for i in ids(wm, :tank; nw = n)
+                if n in tank_volume_reset_time_points
+                    @info "If pass for reset; n = $n, n_prev = $n_prev"
+                    constraint_tank_volume(wm, i; nw = n) #includes n_1
+                else
+                    constraint_tank_volume(wm, i, n_prev, n)
+                end
+            end
+
+            # Update the first network used for integration.
+            n_prev = n
+        end
+
+        # Ensure tanks recover their initial volume.
+        for n_tank in tank_volume_recovery_time_points
+            for i in ids(wm, n_tank, :tank)
+                constraint_tank_volume_recovery(wm, i, n_1, n_tank)
+            end
+        end
+
+    else #single time period case;
+        for i in ids(wm, :tank; nw = n_1)
+            constraint_tank_volume(wm, i; nw = n_1)
+        end
+    end
+end
+
+
+ 

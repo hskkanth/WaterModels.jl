@@ -230,7 +230,8 @@ function constraint_on_off_des_pipe_flow(
     q_min_forward::Float64
 )
     # Get flow and design status variables.
-    q, z = var(wm, n, :q_des_pipe, a), var(wm, n, :z_des_pipe, a)
+    n_1 = sort(collect(nw_ids(wm)))[1]
+    q, z = var(wm, n, :q_des_pipe, a), var(wm, n_1, :z_des_pipe, a)
 
     # If the valve is closed, flow must be zero.
     q_lb, q_ub = JuMP.lower_bound(q), JuMP.upper_bound(q)
@@ -267,7 +268,8 @@ function constraint_on_off_des_pipe_head(
 )
     # Get head difference and status variables for the design pipe.
     dh = var(wm, n, :dh_des_pipe, a)
-    z = var(wm, n, :z_des_pipe, a)
+    n_1 = sort(collect(nw_ids(wm)))[1]
+    z = var(wm, n_1, :z_des_pipe, a)
     h_i = var(wm, n, :h, node_fr)
     h_j = var(wm, n, :h, node_to)
 
@@ -326,11 +328,16 @@ function constraint_on_off_des_pipe_head_loss(
     q_min_forward::Float64,
 )
     # Get flow and head difference variables.
-    q, dh = var(wm, n, :q_des_pipe, a), var(wm, n, :dh_des_pipe, a)
+    # q, dh = var(wm, n, :q_des_pipe, a), var(wm, n, :dh_des_pipe, a)
+    q, h_i, h_j = var(wm, n, :q_des_pipe, a), var(wm, n, :h, node_fr), var(wm, n, :h, node_to)
 
-    # Add nonconvex constraint for the head loss relationship.
-    c_1 = JuMP.@NLconstraint(wm.model, r * head_loss(q) <= dh / L)
-    c_2 = JuMP.@NLconstraint(wm.model, r * head_loss(q) >= dh / L)
+# Add nonconvex constraint for the head loss relationship.
+    head_loss_form = wm.ref[:it][wm_it_sym][:head_loss]
+    p = uppercase(head_loss_form) == "H-W" ? 1.852 : 2.0
+    alpha = (p-1)
+    h_l = JuMP.@expression(wm.model, q*(abs(q)^alpha))
+    c_1 = JuMP.@NLconstraint(wm.model, r * h_l <= (h_i - h_j) / L)
+    c_2 = JuMP.@NLconstraint(wm.model, r * h_l >= (h_i - h_j) / L)
 
     # Append the :pipe_head_loss constraint array.
     append!(con(wm, n, :on_off_des_pipe_head_loss)[a], [c_1, c_2])

@@ -1040,7 +1040,8 @@ function constraint_on_off_pump_build_ne(
     kwargs...,
 )
     # Gather build and status variables
-    x, z = var(wm, nw, :x_ne_pump, a), var(wm, nw, :z_ne_pump, a)
+    n_1 = sort(collect(nw_ids(wm)))[1]
+    x, z = var(wm, n_1, :x_ne_pump, a), var(wm, nw, :z_ne_pump, a)
 
     _initialize_con_dict(wm, :on_off_pump_build_ne, nw = nw, is_array = true)
     con(wm, nw, :on_off_pump_build_ne)[a] = Array{JuMP.ConstraintRef}([])
