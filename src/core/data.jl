@@ -219,6 +219,17 @@ function _set_flow_partitions_num!(data::Dict{String, <:Any}, num_points::Int)
         end
     end
 
+    for pipe in values(get(data, "des_pipe", Dict{String, Any}()))
+    flow_min, flow_max = pipe["flow_min"], pipe["flow_max"]
+
+        if flow_min < flow_max
+            partition = range(flow_min, flow_max; length = num_points)
+            pipe["flow_partition"] = collect(partition)
+        else
+            pipe["flow_partition"] = [flow_min]
+        end
+    end
+
     for pump in values(get(data, "pump", Dict{String, Any}()))
         flow_min, flow_max = pump["flow_min_forward"], pump["flow_max"]
 
