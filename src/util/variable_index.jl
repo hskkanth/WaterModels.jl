@@ -85,6 +85,9 @@ function _get_direction_variable_indices(wm::AbstractNCDModel; nw::Int=nw_id_def
     vars = Array{_VariableIndex, 1}()
 
     for comp_type in _LINK_COMPONENTS
+        if comp_type in ("pump", "ne_pump")
+            continue
+        end
         for comp_id in ids(wm, nw, Symbol(comp_type))
             v_sym = Symbol("y_" * comp_type)
             append!(vars, [_VariableIndex(nw, Symbol(comp_type), v_sym, comp_id)])

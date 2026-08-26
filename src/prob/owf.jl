@@ -40,6 +40,7 @@ function build_mn_owf(wm::AbstractWaterModel)
     union(tank_volume_recovery_time_points ,n_f)
     for n_tank in tank_volume_recovery_time_points
         for i in ids(wm, n_tank, :tank)
+            @info "test"
             constraint_tank_volume_recovery(wm, i, n_1, n_tank)
         end
     end

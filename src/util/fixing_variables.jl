@@ -61,7 +61,7 @@ function fix_variables_to_relaxed_solutions(wm::AbstractWaterModel, sol_val_dict
 
     if(fixing_pumps_direction == true)
         
-        if(haskey(ref(wm,nw),:pump))
+        if(haskey(ref(wm,nw),:pump) && haskey(var(wm, nw), :y_pump))
             if(nw == 1)
                 println("fixing pump flow direction")
             end
@@ -73,7 +73,7 @@ function fix_variables_to_relaxed_solutions(wm::AbstractWaterModel, sol_val_dict
                 JuMP.fix(y_pump, val; force = true)
             end
         end
-        if(haskey(ref(wm,nw),:ne_pump))
+        if(haskey(ref(wm,nw),:ne_pump) && haskey(var(wm, nw), :y_ne_pump))
             if(nw == 1)
                 println("fixing ne pump flow direction")
             end

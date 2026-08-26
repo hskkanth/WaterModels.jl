@@ -201,7 +201,9 @@ function variable_flow(
         _variable_component_flow(wm, name; nw = nw, bounded = bounded, report = report)
 
         # Create directed flow binary direction variables (`y`) for each component.
-        _variable_component_direction(wm, name; nw = nw, report = report)
+        if !(name in ("pump", "ne_pump"))
+            _variable_component_direction(wm, name; nw = nw, report = report)
+        end
     end
 
     for name in ["des_pipe", "pipe"]
@@ -611,7 +613,6 @@ function constraint_on_off_pump_flow(
 )
     # Get pump status variable.
     qp = var(wm, n, :qp_pump, a)
-    y = var(wm, n, :y_pump, a)
     z = var(wm, n, :z_pump, a)
 
     # If the pump is inactive, flow must be zero.
@@ -619,11 +620,8 @@ function constraint_on_off_pump_flow(
     c_1 = JuMP.@constraint(wm.model, qp >= qp_lb * z)
     c_2 = JuMP.@constraint(wm.model, qp <= qp_ub * z)
 
-    # If the pump is on, the flow direction must be positive.
-    c_3 = JuMP.@constraint(wm.model, y >= z)
-
     # Append the constraint array.
-    append!(con(wm, n, :on_off_pump_flow, a), [c_1, c_2, c_3])
+    append!(con(wm, n, :on_off_pump_flow, a), [c_1, c_2])
 end
 
 
@@ -635,7 +633,6 @@ function constraint_on_off_pump_flow_ne(
 )
     # Get pump status variable.
     qp = var(wm, n, :qp_ne_pump, a)
-    y = var(wm, n, :y_ne_pump, a)
     z = var(wm, n, :z_ne_pump, a)
 
     # If the pump is inactive, flow must be zero.
@@ -643,11 +640,8 @@ function constraint_on_off_pump_flow_ne(
     c_1 = JuMP.@constraint(wm.model, qp >= qp_lb * z)
     c_2 = JuMP.@constraint(wm.model, qp <= qp_ub * z)
 
-    # If the pump is on, the flow direction must be positive.
-    c_3 = JuMP.@constraint(wm.model, y >= z)
-
     # Append the constraint array.
-    append!(con(wm, n, :on_off_pump_flow_ne, a), [c_1, c_2, c_3])
+    append!(con(wm, n, :on_off_pump_flow_ne, a), [c_1, c_2])
 end
 
 
@@ -954,8 +948,8 @@ function _gather_directionality_data(
 )
     # Collect direction variable references per component.
     y_pipe, y_des_pipe = var(wm, n, :y_pipe), var(wm, n, :y_des_pipe)
-    y_pump, y_regulator = var(wm, n, :y_pump), var(wm, n, :y_regulator)
-    y_ne_pump = var(wm, n, :y_ne_pump)
+    z_pump, y_regulator = var(wm, n, :z_pump), var(wm, n, :y_regulator)
+    z_ne_pump = var(wm, n, :z_ne_pump)
     y_short_pipe, y_ne_short_pipe = var(wm, n, :y_short_pipe), var(wm, n, :y_ne_short_pipe)
     y_valve = var(wm, n, :y_valve)
 
@@ -963,8 +957,8 @@ function _gather_directionality_data(
         wm.model,
         sum(y_pipe[a] for a in pipe_to) +
         sum(y_des_pipe[a] for a in des_pipe_to) +
-        sum(y_pump[a] for a in pump_to) +
-        sum(y_ne_pump[a] for a in ne_pump_to) +
+        sum(z_pump[a] for a in pump_to) +
+        sum(z_ne_pump[a] for a in ne_pump_to) +
         sum(y_regulator[a] for a in regulator_to) +
         sum(y_short_pipe[a] for a in short_pipe_to) +
         sum(y_ne_short_pipe[a] for a in ne_short_pipe_to) +
@@ -975,8 +969,8 @@ function _gather_directionality_data(
         wm.model,
         sum(y_pipe[a] for a in pipe_fr) +
         sum(y_des_pipe[a] for a in des_pipe_fr) +
-        sum(y_pump[a] for a in pump_fr) +
-        sum(y_ne_pump[a] for a in ne_pump_fr) +
+        sum(z_pump[a] for a in pump_fr) +
+        sum(z_ne_pump[a] for a in ne_pump_fr) +
         sum(y_regulator[a] for a in regulator_fr) +
         sum(y_short_pipe[a] for a in short_pipe_fr) +
         sum(y_ne_short_pipe[a] for a in ne_short_pipe_fr) +
